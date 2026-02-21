@@ -17,22 +17,19 @@ import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { apiClient } from "@/lib/api-client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 const SCANNER_ID = "qr-checkin-scanner";
 
 async function loadCheckInData(eventId: string) {
     const [s, p, c] = await Promise.all([
-        fetch(`${API_URL}/events/${eventId}/check-in/stats`, { credentials: "include" }),
-        fetch(`${API_URL}/events/${eventId}/check-in/pending?limit=200`, { credentials: "include" }),
-        fetch(`${API_URL}/events/${eventId}/check-in/checked-in?limit=200`, { credentials: "include" }),
+        apiClient.get(`/events/${eventId}/check-in/stats`),
+        apiClient.get(`/events/${eventId}/check-in/pending?limit=200`),
+        apiClient.get(`/events/${eventId}/check-in/checked-in?limit=200`),
     ]);
-    let stats: CheckInStats | null = null;
-    let pendingList: PendingReg[] = [];
-    let checkedInList: CheckedInReg[] = [];
-    if (s.ok) stats = await s.json();
-    if (p.ok) { const d = await p.json(); if (d.data) { pendingList = d.data; } }
-    if (c.ok) { const d = await c.json(); if (d.data) { checkedInList = d.data; } }
+    const stats: CheckInStats | null = s.data ?? null;
+    const pendingList: PendingReg[] = p.data?.data ?? [];
+    const checkedInList: CheckedInReg[] = c.data?.data ?? [];
     return { stats, pendingList, checkedInList };
 }
 
@@ -93,9 +90,7 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
     const [debugLog, setDebugLog] = useState<{ id: string; text: string; ok?: boolean; err?: boolean }[]>([]);
     const [refreshTick, setRefreshTick] = useState(0);
 
-    // Manual booking admit UI
     const [manualRegId, setManualRegId] = useState("");
-    const [manualTickets, setManualTickets] = useState(1);
     const [manualBooking, setManualBooking] = useState<BookingInfo | null>(null);
 
     const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -108,10 +103,10 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
         scanStateRef.current = scanState;
     }, [scanState]);
 
+    /* ─── Log ──────────────────────────────────────── */
     const log = useCallback((msg: string, ok?: boolean, err?: boolean) => {
         const ts = new Date().toLocaleTimeString();
-        // Use crypto.randomUUID() or a counter-only key
-        const id = `log-${++logSeqRef.current}`;  // remove Date.now() to avoid any collision
+        const id = `log-${++logSeqRef.current}`;
         setDebugLog((p) => [...p.slice(-19), { id, text: `[${ts}] ${msg}`, ok, err }]);
     }, []);
 
@@ -122,12 +117,14 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
 
     useEffect(() => {
         let cancelled = false;
-        loadCheckInData(eventId).then((result) => {
-            if (cancelled) return;
-            setStats(result.stats);
-            setPendingList(result.pendingList);
-            setCheckedInList(result.checkedInList);
-        }).catch((e) => console.error("[CheckIn] fetchAll:", e));
+        loadCheckInData(eventId)
+            .then((result) => {
+                if (cancelled) return;
+                setStats(result.stats);
+                setPendingList(result.pendingList);
+                setCheckedInList(result.checkedInList);
+            })
+            .catch((e) => console.error("[CheckIn] fetchAll:", e));
         return () => { cancelled = true; };
     }, [eventId, refreshTick]);
 
@@ -151,18 +148,19 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
     }, []);
 
     /* ─── Admit one ticket (shared by scan + manual) ─ */
-    const admitOne = useCallback(async (registrationId: string, onUpdate?: (b: BookingInfo) => void) => {
+    const admitOne = useCallback(async (
+        registrationId: string,
+        onUpdate?: (b: BookingInfo) => void,
+    ) => {
         if (admitting) return;
         setAdmitting(true);
         log("Admitting 1 ticket...");
         try {
-            const res = await fetch(`${API_URL}/events/${eventId}/check-in/admit-one`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ registration_id: registrationId }),
-            });
-            const data = await res.json();
+            const res = await apiClient.post(
+                `/events/${eventId}/check-in/admit-one`,
+                { registration_id: registrationId },
+            );
+            const data = res.data;
             if (data.success) {
                 const updated: BookingInfo = data.registration;
                 if (onUpdate) { onUpdate(updated); }
@@ -184,9 +182,10 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                 log(`✗ ${data.message}`, false, true);
                 toast.error(data.message);
             }
-        } catch {
-            log("Network error", false, true);
-            toast.error("Network error");
+        } catch (e: any) {
+            const msg = e?.response?.data?.message ?? "Network error";
+            log(msg, false, true);
+            toast.error(msg);
         }
         setAdmitting(false);
     }, [admitting, eventId, fetchAll, log, resumeForNextScan]);
@@ -200,13 +199,11 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
         try { if (scannerRef.current) { scannerRef.current.pause(true); } } catch { }
 
         try {
-            const res = await fetch(`${API_URL}/events/${eventId}/check-in/qr-lookup`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ qr_data: qrData, method: "QR" }),
-            });
-            const data = await res.json();
+            const res = await apiClient.post(
+                `/events/${eventId}/check-in/qr-lookup`,
+                { qr_data: qrData, method: "QR" },
+            );
+            const data = res.data;
 
             if (!data.success) {
                 log(`✗ ${data.message}`, false, true);
@@ -230,9 +227,10 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
 
             setBooking(reg);
             setScanState("booking_shown");
-        } catch {
-            log("Server error during QR lookup", false, true);
-            setResultMsg("Server error — try again");
+        } catch (e: any) {
+            const msg = e?.response?.data?.message ?? "Server error — try again";
+            log(msg, false, true);
+            setResultMsg(msg);
             setResultOk(false);
             setScanState("result_fail");
             processingRef.current = false;
@@ -288,19 +286,18 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                 },
                 () => {
                     const sf = scanFramesRef.current;
-                    sf.count = sf.count + 1;
+                    sf.count += 1;
                     if (Date.now() - sf.lastLog > 2000) {
                         log(`Scanning... (${sf.count} frames, no QR yet)`);
                         sf.count = 0;
                         sf.lastLog = Date.now();
                     }
-                }
+                },
             );
             log("Camera started ✓", true);
             setScanState("ready");
         } catch (err: any) {
-            let msg = "Camera failed";
-            if (err && err.message) { msg = err.message; }
+            const msg = err?.message ?? "Camera failed";
             log("Camera error: " + msg, false, true);
             setCameraError(msg);
             setScanState("idle");
@@ -321,18 +318,11 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
         setIsLoading(true);
         log(`Manual lookup: ${manualRegId.trim()}`);
         try {
-            // First do a lookup to see booking details
-            const res = await fetch(`${API_URL}/events/${eventId}/check-in/pending?limit=1000`, {
-                credentials: "include",
-            });
-            // Just use admit-one directly which returns updated registration
-            const admitRes = await fetch(`${API_URL}/events/${eventId}/check-in/admit-one`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ registration_id: manualRegId.trim() }),
-            });
-            const data = await admitRes.json();
+            const res = await apiClient.post(
+                `/events/${eventId}/check-in/admit-one`,
+                { registration_id: manualRegId.trim() },
+            );
+            const data = res.data;
             if (data.success) {
                 const reg: BookingInfo = data.registration;
                 setManualBooking(reg);
@@ -344,8 +334,10 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                 log(`✗ ${data.message}`, false, true);
                 toast.error(data.message);
             }
-        } catch {
-            toast.error("Network error");
+        } catch (e: any) {
+            const msg = e?.response?.data?.message ?? "Network error";
+            log(msg, false, true);
+            toast.error(msg);
         }
         setIsLoading(false);
     };
@@ -355,21 +347,12 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
         if (selectedIds.size === 0) return;
         setIsLoading(true);
         try {
-            const res = await fetch(`${API_URL}/events/${eventId}/check-in/bulk`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ registration_ids: Array.from(selectedIds), method: "BULK" }),
-            });
-            const result = await res.json();
-            const summary = result.summary;
-            let admitted = 0;
-            let total = 0;
-            if (summary) {
-                admitted = summary.admitted;
-                total = summary.total;
-            }
-            toast.success(`Admitted ${admitted} of ${total}`);
+            const res = await apiClient.post(
+                `/events/${eventId}/check-in/bulk`,
+                { registration_ids: Array.from(selectedIds), method: "BULK" },
+            );
+            const summary = res.data?.summary;
+            toast.success(`Admitted ${summary?.admitted ?? 0} of ${summary?.total ?? 0}`);
             setSelectedIds(new Set());
             fetchAll();
         } catch {
@@ -382,18 +365,35 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
         if (!confirm(`Admit all ${stats?.pending ?? 0} pending attendees?`)) return;
         setIsLoading(true);
         try {
-            const res = await fetch(`${API_URL}/events/${eventId}/check-in/admit-all`, {
-                method: "POST", credentials: "include",
-            });
-            const result = await res.json();
-            let admittedCount = 0;
-            if (result.summary) { admittedCount = result.summary.admitted; }
+            const res = await apiClient.post(`/events/${eventId}/check-in/admit-all`);
+            const admittedCount = res.data?.summary?.admitted ?? 0;
             toast.success(`Admitted ${admittedCount}`);
             fetchAll();
         } catch {
             toast.error("Failed");
         }
         setIsLoading(false);
+    };
+
+    /* ─── Inline admit from pending list ───────────── */
+    const handleInlineAdmit = async (reg: PendingReg) => {
+        try {
+            const res = await apiClient.post(
+                `/events/${eventId}/check-in/admit-one`,
+                { registration_id: reg.registration_id },
+            );
+            const data = res.data;
+            if (data.success) {
+                const b: BookingInfo = data.registration;
+                setManualBooking(b);
+                toast.success(`Admitted 1/${b.ticket_count} for ${reg.user_name}`);
+                fetchAll();
+            } else {
+                toast.error(data.message);
+            }
+        } catch (e: any) {
+            toast.error(e?.response?.data?.message ?? "Network error");
+        }
     };
 
     /* ─── Selection ────────────────────────────────── */
@@ -407,14 +407,15 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
     const toggleAll = () => setSelectedIds(
         selectedIds.size === pendingList.length && pendingList.length > 0
             ? new Set()
-            : new Set(pendingList.map(r => r.registration_id))
+            : new Set(pendingList.map(r => r.registration_id)),
     );
 
     /* ─── Helpers ──────────────────────────────────── */
     const scannerVisible = scanState !== "idle";
     const isProcessing = scanState === "processing" || scanState === "starting";
-    const remaining = booking ? booking.ticket_count - booking.admitted_count : 0;
-    const manualRemaining = manualBooking ? manualBooking.ticket_count - manualBooking.admitted_count : 0;
+    const manualRemaining = manualBooking
+        ? manualBooking.ticket_count - manualBooking.admitted_count
+        : 0;
 
     /* ─── Render ───────────────────────────────────── */
     return (
@@ -434,7 +435,9 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                         </CardHeader>
                         <CardContent>
                             <div className={cn("text-2xl font-bold", s.color)}>{s.value}</div>
-                            {s.progress !== undefined && <Progress value={s.progress} className="mt-2 h-2" />}
+                            {s.progress !== undefined && (
+                                <Progress value={s.progress} className="mt-2 h-2" />
+                            )}
                         </CardContent>
                     </Card>
                 ))}
@@ -457,8 +460,11 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                             </Button>
                         ) : (
                             <>
-                                {/* Camera viewport — hidden when booking card is shown */}
-                                <div className="relative bg-black rounded-xl overflow-hidden" style={{ minHeight: 300 }}>
+                                {/* Camera viewport */}
+                                <div
+                                    className="relative bg-black rounded-xl overflow-hidden"
+                                    style={{ minHeight: 300 }}
+                                >
                                     <div
                                         id={SCANNER_ID}
                                         className="w-full"
@@ -468,7 +474,7 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                         }}
                                     />
 
-                                    {/* Booking card — shown after QR match */}
+                                    {/* Booking card overlay */}
                                     {scanState === "booking_shown" && booking && (
                                         <BookingCard
                                             booking={booking}
@@ -478,15 +484,18 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                         />
                                     )}
 
-                                    {/* Overlays */}
+                                    {/* Processing overlay */}
                                     {isProcessing && (
                                         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/75 gap-3">
                                             <Loader2 className="h-8 w-8 animate-spin text-white" />
                                             <p className="text-white text-sm font-medium">
-                                                {scanState === "starting" ? "Starting camera…" : "Looking up booking…"}
+                                                {scanState === "starting"
+                                                    ? "Starting camera…"
+                                                    : "Looking up booking…"}
                                             </p>
                                         </div>
                                     )}
+
                                     {scanState === "ready" && (
                                         <div className="absolute top-3 inset-x-0 flex justify-center pointer-events-none">
                                             <span className="bg-green-600/80 backdrop-blur text-white text-xs px-3 py-1.5 rounded-full font-medium">
@@ -500,7 +509,10 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                 {cameraError && (
                                     <div className="flex gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                                         <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-                                        <div><p className="font-medium">Camera Error</p><p>{cameraError}</p></div>
+                                        <div>
+                                            <p className="font-medium">Camera Error</p>
+                                            <p>{cameraError}</p>
+                                        </div>
                                     </div>
                                 )}
 
@@ -517,7 +529,11 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                             <XCircle className="h-5 w-5 shrink-0" />
                                             {resultMsg}
                                         </div>
-                                        <Button variant="outline" className="w-full gap-2" onClick={resumeForNextScan}>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full gap-2"
+                                            onClick={resumeForNextScan}
+                                        >
                                             <Camera className="h-4 w-4" /> Scan Next
                                         </Button>
                                     </div>
@@ -533,19 +549,26 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                         {debugLog.length > 0 && (
                             <div className="bg-gray-950 rounded-lg p-2 text-xs font-mono max-h-36 overflow-auto space-y-px">
                                 {debugLog.map((l) => (
-                                    <div key={l.id} className={cn(
-                                        "leading-relaxed",
-                                        l.err ? "text-red-400" :
-                                            l.ok ? "text-green-400" :
-                                                "text-gray-400"
-                                    )}>{l.text}</div>
+                                    <div
+                                        key={l.id}
+                                        className={cn(
+                                            "leading-relaxed",
+                                            l.err ? "text-red-400" :
+                                                l.ok ? "text-green-400" :
+                                                    "text-gray-400",
+                                        )}
+                                    >
+                                        {l.text}
+                                    </div>
                                 ))}
                             </div>
                         )}
 
                         {/* Divider */}
                         <div className="relative">
-                            <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                            <div className="absolute inset-0 flex items-center">
+                                <span className="w-full border-t" />
+                            </div>
                             <div className="relative flex justify-center text-xs uppercase">
                                 <span className="bg-card px-2 text-muted-foreground">Manual entry</span>
                             </div>
@@ -563,11 +586,13 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                 onClick={handleManualLookup}
                                 disabled={isLoading || !manualRegId.trim()}
                             >
-                                {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Admit 1"}
+                                {isLoading
+                                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                                    : "Admit 1"}
                             </Button>
                         </div>
 
-                        {/* Manual booking card — shows after manual admit */}
+                        {/* Manual booking card */}
                         {manualBooking && manualBooking.admitted_count < manualBooking.ticket_count && (
                             <BookingCard
                                 booking={manualBooking}
@@ -583,7 +608,12 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                     <CheckCircle2 className="h-4 w-4" />
                                     All {manualBooking.ticket_count} tickets admitted for {manualBooking.user_name}
                                 </div>
-                                <button onClick={() => setManualBooking(null)} className="text-gray-400 hover:text-gray-600">✕</button>
+                                <button
+                                    onClick={() => setManualBooking(null)}
+                                    className="text-gray-400 hover:text-gray-600"
+                                >
+                                    ✕
+                                </button>
                             </div>
                         )}
                     </CardContent>
@@ -618,7 +648,6 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                             <RefreshCw className="h-4 w-4" /> Refresh Lists
                         </Button>
 
-                        {/* Legend */}
                         <div className="pt-2 border-t space-y-1.5 text-xs text-muted-foreground">
                             <p className="font-medium text-foreground">How per-ticket check-in works:</p>
                             <p>1. Scan QR → booking card appears</p>
@@ -658,14 +687,19 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                         <TableBody>
                             {pendingList.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center text-muted-foreground py-10">
+                                    <TableCell
+                                        colSpan={5}
+                                        className="text-center text-muted-foreground py-10"
+                                    >
                                         No pending registrations
                                     </TableCell>
                                 </TableRow>
                             ) : pendingList.map(reg => (
                                 <TableRow
                                     key={reg.registration_id}
-                                    className={cn(selectedIds.has(reg.registration_id) && "bg-muted/40")}
+                                    className={cn(
+                                        selectedIds.has(reg.registration_id) && "bg-muted/40",
+                                    )}
                                 >
                                     <TableCell className="pl-4">
                                         <button onClick={() => toggleSelection(reg.registration_id)}>
@@ -676,7 +710,9 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                     </TableCell>
                                     <TableCell>
                                         <p className="font-medium">{reg.user_name}</p>
-                                        <p className="text-xs text-muted-foreground">{reg.user_mobile_no || reg.user_email}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {reg.user_mobile_no || reg.user_email}
+                                        </p>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1">
@@ -694,23 +730,7 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                             size="sm"
                                             variant="outline"
                                             className="gap-1 text-xs h-7"
-                                            onClick={async () => {
-                                                const admitRes = await fetch(`${API_URL}/events/${eventId}/check-in/admit-one`, {
-                                                    method: "POST",
-                                                    headers: { "Content-Type": "application/json" },
-                                                    credentials: "include",
-                                                    body: JSON.stringify({ registration_id: reg.registration_id }),
-                                                });
-                                                const data = await admitRes.json();
-                                                if (data.success) {
-                                                    const b: BookingInfo = data.registration;
-                                                    setManualBooking(b);
-                                                    toast.success(`Admitted 1/${b.ticket_count} for ${reg.user_name}`);
-                                                    fetchAll();
-                                                } else {
-                                                    toast.error(data.message);
-                                                }
-                                            }}
+                                            onClick={() => handleInlineAdmit(reg)}
                                         >
                                             <UserCheck className="h-3.5 w-3.5" /> Admit 1
                                         </Button>
@@ -743,7 +763,10 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                         <TableBody>
                             {checkedInList.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={4} className="text-center text-muted-foreground py-10">
+                                    <TableCell
+                                        colSpan={4}
+                                        className="text-center text-muted-foreground py-10"
+                                    >
                                         No check-ins yet
                                     </TableCell>
                                 </TableRow>
@@ -751,7 +774,9 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                 <TableRow key={reg.registration_id}>
                                     <TableCell className="pl-4">
                                         <p className="font-medium">{reg.user_name}</p>
-                                        <p className="text-xs text-muted-foreground">{reg.user_mobile_no || reg.user_email}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {reg.user_mobile_no || reg.user_email}
+                                        </p>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1">
@@ -761,19 +786,26 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                                     </TableCell>
                                     <TableCell>
                                         {reg.admitted_count !== undefined
-                                            ? <span className={cn(
-                                                "text-sm font-medium",
-                                                reg.admitted_count >= reg.ticket_count ? "text-green-600" : "text-yellow-600"
-                                            )}>
-                                                {reg.admitted_count}/{reg.ticket_count}
-                                            </span>
+                                            ? (
+                                                <span className={cn(
+                                                    "text-sm font-medium",
+                                                    reg.admitted_count >= reg.ticket_count
+                                                        ? "text-green-600"
+                                                        : "text-yellow-600",
+                                                )}>
+                                                    {reg.admitted_count}/{reg.ticket_count}
+                                                </span>
+                                            )
                                             : "—"}
                                     </TableCell>
                                     <TableCell className="text-muted-foreground text-sm">
                                         <div className="flex items-center gap-1">
                                             <Clock className="h-3.5 w-3.5" />
                                             {reg.check_in_time
-                                                ? new Date(reg.check_in_time).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+                                                ? new Date(reg.check_in_time).toLocaleTimeString(
+                                                    "en-IN",
+                                                    { hour: "2-digit", minute: "2-digit" },
+                                                )
                                                 : "—"}
                                         </div>
                                     </TableCell>
@@ -806,7 +838,6 @@ function BookingCard({
 
     return (
         <div className="rounded-xl border bg-card p-4 space-y-4">
-            {/* Header */}
             <div className="flex items-start justify-between">
                 <div>
                     <p className="font-bold text-lg leading-tight">{booking.user_name}</p>
@@ -820,7 +851,9 @@ function BookingCard({
                 <div className="text-right">
                     <p className="text-3xl font-black tabular-nums leading-none">
                         {booking.admitted_count}
-                        <span className="text-muted-foreground font-normal text-xl">/{booking.ticket_count}</span>
+                        <span className="text-muted-foreground font-normal text-xl">
+                            /{booking.ticket_count}
+                        </span>
                     </p>
                     <p className="text-xs text-muted-foreground mt-0.5">tickets used</p>
                 </div>
@@ -829,7 +862,9 @@ function BookingCard({
             {/* Ticket slots */}
             <div
                 className="grid gap-2"
-                style={{ gridTemplateColumns: `repeat(${Math.min(booking.ticket_count, 5)}, 1fr)` }}
+                style={{
+                    gridTemplateColumns: `repeat(${Math.min(booking.ticket_count, 5)}, 1fr)`,
+                }}
             >
                 {Array.from({ length: booking.ticket_count }).map((_, i) => {
                     const admitted = i < booking.admitted_count;
@@ -840,11 +875,14 @@ function BookingCard({
                                 "rounded-lg border p-2 flex flex-col items-center gap-1 transition-all",
                                 admitted
                                     ? "bg-green-50 border-green-300 dark:bg-green-950 dark:border-green-700"
-                                    : "bg-muted border-muted-foreground/20"
+                                    : "bg-muted border-muted-foreground/20",
                             )}
                         >
                             <Ticket className={cn("h-5 w-5", admitted ? "text-green-600" : "text-muted-foreground")} />
-                            <span className={cn("text-xs font-medium", admitted ? "text-green-600" : "text-muted-foreground")}>
+                            <span className={cn(
+                                "text-xs font-medium",
+                                admitted ? "text-green-600" : "text-muted-foreground",
+                            )}>
                                 {admitted ? "In" : "Out"}
                             </span>
                         </div>
@@ -852,9 +890,10 @@ function BookingCard({
                 })}
             </div>
 
-            {label && <p className="text-xs text-muted-foreground text-center">{label}</p>}
+            {label && (
+                <p className="text-xs text-muted-foreground text-center">{label}</p>
+            )}
 
-            {/* Actions */}
             {!allDone ? (
                 <div className="flex gap-2">
                     <Button
