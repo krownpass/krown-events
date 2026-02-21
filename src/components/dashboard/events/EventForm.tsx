@@ -1,6 +1,6 @@
 "use client";
 
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -94,7 +94,7 @@ export function EventForm({
         name: "ticket_tiers",
     });
 
-    const isPaid = form.watch("is_paid");
+    const isPaid = useWatch({ control: form.control, name: "is_paid" });
 
     const handleSubmit = (data: CreateEventInput) => {
         // Convert datetime-local to ISO

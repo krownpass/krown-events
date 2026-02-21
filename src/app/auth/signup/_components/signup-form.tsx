@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -74,9 +74,9 @@ export function SignupForm() {
         },
     });
 
-    const watchEmail = form.watch("email")?.trim();
-    const watchMobile = form.watch("mobile_number")?.trim();
-    const watchOrg = form.watch("org_name")?.trim();
+    const watchEmail = useWatch({ control: form.control, name: "email" })?.trim();
+    const watchMobile = useWatch({ control: form.control, name: "mobile_number" })?.trim();
+    const watchOrg = useWatch({ control: form.control, name: "org_name" })?.trim();
 
     // Force countdown update
     const [, tick] = useState(0);

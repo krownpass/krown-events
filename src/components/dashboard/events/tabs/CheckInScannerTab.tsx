@@ -90,7 +90,7 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
     const [resultMsg, setResultMsg] = useState("");
     const [resultOk, setResultOk] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
-    const [debugLog, setDebugLog] = useState<{ text: string; ok?: boolean; err?: boolean }[]>([]);
+    const [debugLog, setDebugLog] = useState<{ id: string; text: string; ok?: boolean; err?: boolean }[]>([]);
     const [refreshTick, setRefreshTick] = useState(0);
 
     // Manual booking admit UI
@@ -102,15 +102,17 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
     const processingRef = useRef(false);
     const scanStateRef = useRef<ScanState>("idle");
     const scanFramesRef = useRef({ count: 0, lastLog: 0 });
+    const logSeqRef = useRef(0);
 
     useEffect(() => {
         scanStateRef.current = scanState;
     }, [scanState]);
 
-    /* ─── Log ──────────────────────────────────────── */
     const log = useCallback((msg: string, ok?: boolean, err?: boolean) => {
         const ts = new Date().toLocaleTimeString();
-        setDebugLog(p => [...p.slice(-19), { text: `[${ts}] ${msg}`, ok, err }]);
+        // Use crypto.randomUUID() or a counter-only key
+        const id = `log-${++logSeqRef.current}`;  // remove Date.now() to avoid any collision
+        setDebugLog((p) => [...p.slice(-19), { id, text: `[${ts}] ${msg}`, ok, err }]);
     }, []);
 
     /* ─── Fetch Data ───────────────────────────────── */
@@ -531,7 +533,7 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                         {debugLog.length > 0 && (
                             <div className="bg-gray-950 rounded-lg p-2 text-xs font-mono max-h-36 overflow-auto space-y-px">
                                 {debugLog.map((l) => (
-                                    <div key={l.text} className={cn(
+                                    <div key={l.id} className={cn(
                                         "leading-relaxed",
                                         l.err ? "text-red-400" :
                                             l.ok ? "text-green-400" :
