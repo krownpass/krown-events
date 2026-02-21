@@ -17,11 +17,17 @@ const nextConfig: NextConfig = {
         return [
             {
                 source: "/api/proxy/events/:path*",
-                destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/events/:path*`,
+                destination:
+                    process.env.NODE_ENV === "production"
+                        ? "https://api.krownpass.com/api/events/:path*"
+                        : "http://localhost:4000/api/events/:path*",
             },
             {
                 source: "/api/proxy/bookings/:path*",
-                destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api"}/bookings/:path*`,
+                destination:
+                    process.env.NODE_ENV === "production"
+                        ? "https://api.krownpass.com/api/bookings/:path*"
+                        : "http://localhost:4000/api/bookings/:path*",
             },
         ];
     },

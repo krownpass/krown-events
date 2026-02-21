@@ -32,41 +32,24 @@ export function LoginForm() {
     const loginMutation = useMutation({
         mutationFn: authApi.login,
         onSuccess: (data) => {
-            console.log("🔐 [LOGIN] Success! Response:", data);
-            console.log("🔐 [LOGIN] Token in response:", data.token ? "✅ Present" : "❌ Missing");
-            console.log("🔐 [LOGIN] Refresh token in response:", data.refresh_token ? "✅ Present" : "❌ Missing");
-
-            // Check current cookies before redirect
-            const cookiesBefore = document.cookie;
-            console.log("🍪 [LOGIN] Cookies BEFORE redirect:", cookiesBefore);
-
-            // Map the API response to AuthUser type
+            // data = { success: true, user: { organizerId, role, type } }
             setAuth({
-                organizerId: data.user.organizer_id,
+                organizerId: data.user.organizerId,  // ✅ camelCase from our API route
                 role: data.user.role,
                 type: "org_user",
             });
 
-            // Invalidate auth queries to refetch user data
             queryClient.invalidateQueries({ queryKey: authKeys.all });
 
             toast.success("Welcome back!", {
                 description: "Setting up your account...",
             });
 
-            // Wait a bit to check if cookies are set
-            setTimeout(() => {
-                const cookiesAfter = document.cookie;
-                console.log("🍪 [LOGIN] Cookies AFTER 500ms:", cookiesAfter);
-                console.log("🍪 [LOGIN] Has krown_access_token?", cookiesAfter.includes("krown_access_token") ? "✅ YES" : "❌ NO");
-                console.log("🍪 [LOGIN] Has krown_refresh_token?", cookiesAfter.includes("krown_refresh_token") ? "✅ YES" : "❌ NO");
-
-                console.log("🚀 [LOGIN] Redirecting to /onboarding...");
-                window.location.href = "/onboarding";
-            }, 500);
+            // Cookies are already set by the Next.js API route on our domain
+            // so the onboarding server component will find them immediately
+            window.location.href = "/onboarding";
         },
         onError: (error: any) => {
-            console.error("❌ [LOGIN] Error:", error);
             toast.error("Login failed", {
                 description: error.message || "Please check your credentials.",
             });
@@ -77,16 +60,14 @@ export function LoginForm() {
         loginMutation.mutate(data);
     });
 
-    // Handle URL search params (e.g., ?signup=success)
     useEffect(() => {
-        if (typeof window !== 'undefined') {
+        if (typeof window !== "undefined") {
             const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('signup') === 'success') {
+            if (urlParams.get("signup") === "success") {
                 toast.success("Account created successfully!", {
                     description: "Please log in with your credentials.",
                 });
-                // Clean up URL
-                window.history.replaceState({}, '', window.location.pathname);
+                window.history.replaceState({}, "", window.location.pathname);
             }
         }
     }, []);
@@ -171,7 +152,6 @@ export function LoginForm() {
                     </Button>
                 </div>
 
-                {/* Alternative Login Options */}
                 <div className="relative">
                     <div className="absolute inset-0 flex items-center">
                         <span className="w-full border-t" />

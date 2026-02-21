@@ -9,141 +9,127 @@ const PUBLIC_PATHS = [
     "/auth/forgot-password",
 ];
 
-const ONBOARDING_PATHS = ["/onboarding"];
-const PUBLIC_API_PATHS = ["/api/auth"];
+const PROTECTED_PATHS = [
+    "/onboarding",
+    "/admin",
+    "/dashboard",
+];
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+const isProd = process.env.NODE_ENV === "production";
+
+const accessTokenCookieOptions = {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 30,
+};
+
+const refreshTokenCookieOptions = {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: "lax" as const,
+    path: "/",
+    maxAge: 60 * 60 * 24 * 120,
+};
 
 async function tryRefreshToken(
     request: NextRequest,
     redirectPath?: string
 ): Promise<NextResponse | null> {
     const refreshToken = request.cookies.get("krown_refresh_token")?.value;
-
+    console.log("[MIDDLEWARE] tryRefreshToken - refresh token present:", !!refreshToken);
     if (!refreshToken) return null;
 
     try {
-        const res = await fetch(`${API_BASE_URL}/events/auth/refresh-token`, {
+        const refreshUrl = isProd
+            ? "https://api.krownpass.com/api/events/auth/refresh-token"
+            : "http://localhost:4000/api/events/auth/refresh-token";
+
+        const res = await fetch(refreshUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ refresh_token: refreshToken }),
         });
 
+        console.log("[MIDDLEWARE] Refresh response status:", res.status);
         if (!res.ok) return null;
 
         const json = await res.json();
+        console.log("[MIDDLEWARE] Refresh response success:", json.success);
         if (!json.success || !json.data) return null;
 
         const { access_token, refresh_token: newRefreshToken } = json.data;
+        console.log("[MIDDLEWARE] Got new access token:", !!access_token);
 
-        // Continue to the requested page with new tokens set
         const response = redirectPath
             ? NextResponse.redirect(new URL(redirectPath, request.url))
             : NextResponse.next();
 
-        response.cookies.set("krown_access_token", access_token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-            maxAge: 1800, // 30 minutes
-        });
-
-        response.cookies.set("krown_refresh_token", newRefreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-            maxAge: 10368000, // 120 days
-        });
+        response.cookies.set("krown_access_token", access_token, accessTokenCookieOptions);
+        response.cookies.set("krown_refresh_token", newRefreshToken, refreshTokenCookieOptions);
 
         return response;
-    } catch {
+    } catch (err) {
+        console.log("[MIDDLEWARE] Refresh error:", err);
         return null;
     }
 }
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
-    const response = NextResponse.next();
 
-    // CSRF cookie
-    if (!request.cookies.get("csrf_token")) {
-        response.cookies.set("csrf_token", crypto.randomUUID(), {
-            httpOnly: false,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-        });
+    // 🔍 Log ALL cookies on every protected request
+    const allCookies = request.cookies.getAll();
+    console.log(`[MIDDLEWARE] ========== ${pathname} ==========`);
+    console.log("[MIDDLEWARE] All cookies:", allCookies.map(c => c.name));
+    console.log("[MIDDLEWARE] NODE_ENV:", process.env.NODE_ENV);
+    console.log("[MIDDLEWARE] JWT_SECRET set:", !!process.env.JWT_SECRET);
+
+    if (PUBLIC_PATHS.some((path) => pathname.startsWith(path))) {
+        return NextResponse.next();
     }
 
-    // Public pages
-    if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
-        return response;
+    const isProtected = PROTECTED_PATHS.some((path) => pathname.startsWith(path));
+    if (!isProtected) {
+        return NextResponse.next();
     }
 
-    // Public APIs
-    if (PUBLIC_API_PATHS.some((p) => pathname.startsWith(p))) {
-        return response;
-    }
-
-    // Onboarding: auth required, no further checks
-    if (ONBOARDING_PATHS.some((p) => pathname.startsWith(p))) {
-        console.log("🛡️  [MIDDLEWARE] Checking onboarding path:", pathname);
-        const token = request.cookies.get("krown_access_token")?.value;
-        const refreshToken = request.cookies.get("krown_refresh_token")?.value;
-
-        console.log("🍪 [MIDDLEWARE] Access token:", token ? "✅ Present" : "❌ Missing");
-        console.log("🍪 [MIDDLEWARE] Refresh token:", refreshToken ? "✅ Present" : "❌ Missing");
-        console.log("🍪 [MIDDLEWARE] All cookies:", request.cookies.getAll().map(c => c.name).join(", "));
-
-        if (!token) {
-            console.log("⚠️  [MIDDLEWARE] No access token, trying refresh...");
-            // Try refresh before redirecting
-            const refreshed = await tryRefreshToken(request, pathname);
-            if (refreshed) {
-                console.log("✅ [MIDDLEWARE] Token refreshed successfully");
-                return refreshed;
-            }
-            console.log("❌ [MIDDLEWARE] Refresh failed, redirecting to login");
-            return NextResponse.redirect(new URL("/auth/login", request.url));
-        }
-        console.log("✅ [MIDDLEWARE] Access token found, allowing access");
-        return response;
-    }
-
-    // Protected routes
     const token = request.cookies.get("krown_access_token")?.value;
+    console.log("[MIDDLEWARE] Access token present:", !!token);
 
     if (!token) {
-        // Try refresh before redirecting
+        console.log("[MIDDLEWARE] No access token, trying refresh...");
         const refreshed = await tryRefreshToken(request, pathname);
-        if (refreshed) return refreshed;
-
-        const loginUrl = new URL("/auth/login", request.url);
-        loginUrl.searchParams.set("redirect", pathname);
-        return NextResponse.redirect(loginUrl);
+        if (refreshed) {
+            console.log("[MIDDLEWARE] Refresh succeeded, redirecting to:", pathname);
+            return refreshed;
+        }
+        console.log("[MIDDLEWARE] Refresh failed, redirecting to login");
+        return NextResponse.redirect(new URL("/auth/login", request.url));
     }
 
     try {
         const secret = new TextEncoder().encode(process.env.JWT_SECRET);
         await jwtVerify(token, secret);
-    } catch {
-        // JWT expired — attempt refresh
-        const refreshed = await tryRefreshToken(request);
+        console.log("[MIDDLEWARE] JWT valid ✅");
+        return NextResponse.next();
+    } catch (err) {
+        console.log("[MIDDLEWARE] JWT invalid:", err);
+        const refreshed = await tryRefreshToken(request, pathname);
         if (refreshed) return refreshed;
 
-        // Refresh failed — clear cookies and redirect to login
-        const loginUrl = new URL("/auth/login", request.url);
-        const redirectResponse = NextResponse.redirect(loginUrl);
-        redirectResponse.cookies.delete("krown_access_token");
-        redirectResponse.cookies.delete("krown_refresh_token");
-        return redirectResponse;
+        const response = NextResponse.redirect(new URL("/auth/login", request.url));
+        response.cookies.delete("krown_access_token");
+        response.cookies.delete("krown_refresh_token");
+        return response;
     }
-
-    return response;
 }
 
 export const config = {
-    matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+    matcher: [
+        "/onboarding/:path*",
+        "/admin/:path*",
+        "/dashboard/:path*",
+    ],
 };

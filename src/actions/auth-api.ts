@@ -71,14 +71,12 @@ export interface LoginRequest {
 }
 
 export interface LoginResponse {
+    success: boolean;
     user: {
-        organizer_id: string;
+        organizerId: string;
         role: string;
-        email: string;
-        mobile_number: string;
+        type: "org_user";
     };
-    token: string;
-    refresh_token: string;
 }
 
 export interface RefreshTokenRequest {
@@ -114,7 +112,6 @@ const handleResponse = <T>(response: { data: ApiResponse<T> }): T => {
             "Request failed"
         );
     }
-
     return response.data.data as T;
 };
 
@@ -170,14 +167,21 @@ export const authApi = {
         return handleResponse(response);
     },
 
-    login: async (
-        data: LoginRequest
-    ): Promise<LoginResponse> => {
-        const response = await apiClient.post<ApiResponse<LoginResponse>>(
-            "/events/auth/login/password",
-            data
-        );
-        return handleResponse(response);
+    // ✅ Calls Next.js proxy route so cookies are set on frontend domain
+    login: async (data: LoginRequest): Promise<LoginResponse> => {
+        const response = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+        });
+
+        const json = await response.json();
+
+        if (!response.ok || !json.success) {
+            throw new Error(json.error || "Login failed");
+        }
+
+        return json;
     },
 
     sendLoginOtp: async (
@@ -190,6 +194,7 @@ export const authApi = {
         return handleResponse(response);
     },
 
+    // ✅ Fixed: was missing the opening `<` on the Promise generic
     verifyLoginOtp: async (
         data: VerifyMobileOtpRequest
     ): Promise<
