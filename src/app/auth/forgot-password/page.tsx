@@ -18,14 +18,13 @@ type Step = "phone" | "verify" | "success";
 
 export default function ForgotPasswordPage() {
     const router = useRouter();
-    const [step, setStep] = useState<Step>("phone");
+    const [phoneOverride, setPhoneOverride] = useState(false);
     const [phone, setPhone] = useState("");
-    const [sessionId, setSessionId] = useState("");
     const [otp, setOtp] = useState("");
     const [seconds, setSeconds] = useState(0);
 
     // Send OTP action
-    const [sendState, sendOtp, isSending] = useActionState(
+    const [sendState, sendOtpAction, isSending] = useActionState(
         sendPasswordResetOtpAction,
         { success: false }
     );
@@ -36,21 +35,20 @@ export default function ForgotPasswordPage() {
         { success: false }
     );
 
-    // Handle OTP sent successfully
-    useEffect(() => {
-        if (sendState.success && sendState.data) {
-            setSessionId(sendState.data.session_id);
-            setStep("verify");
-            setSeconds(30);
-        }
-    }, [sendState]);
+    // Derive step and sessionId from action state
+    const sessionId = (sendState.data as { session_id?: string } | undefined)?.session_id ?? "";
+    let step: Step = "phone";
+    if (resetState.success) {
+        step = "success";
+    } else if (!phoneOverride && sendState.success && sendState.data) {
+        step = "verify";
+    }
 
-    // Handle password reset successfully
-    useEffect(() => {
-        if (resetState.success) {
-            setStep("success");
-        }
-    }, [resetState]);
+    const sendOtp = (formData: FormData) => {
+        setPhoneOverride(false);
+        sendOtpAction(formData);
+        setSeconds(30);
+    };
 
     // Countdown timer
     useEffect(() => {
@@ -124,7 +122,7 @@ export default function ForgotPasswordPage() {
             <div className="space-y-6">
                 <div>
                     <button
-                        onClick={() => setStep("phone")}
+                        onClick={() => setPhoneOverride(true)}
                         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-4"
                     >
                         <ArrowLeft className="h-4 w-4 mr-1" />

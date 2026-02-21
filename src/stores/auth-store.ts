@@ -8,17 +8,16 @@ export interface AuthUser {
 }
 
 interface AuthStore {
-    // State
     user: AuthUser | null;
     isAuthenticated: boolean;
     isLoading: boolean;
+    accessToken: string | null; // ✅ in-memory token for API calls
 
-    // Actions
-    setAuth: (user: AuthUser) => void;
+    setAuth: (user: AuthUser, token?: string) => void;
     clearAuth: () => void;
     setLoading: (loading: boolean) => void;
+    setAccessToken: (token: string | null) => void;
 
-    // Computed
     isOwner: () => boolean;
     isMember: () => boolean;
 }
@@ -26,17 +25,17 @@ interface AuthStore {
 export const useAuthStore = create<AuthStore>()(
     persist(
         (set, get) => ({
-            // Initial state
             user: null,
             isAuthenticated: false,
             isLoading: false,
+            accessToken: null,
 
-            // Actions
-            setAuth: (user: AuthUser) => {
+            setAuth: (user: AuthUser, token?: string) => {
                 set({
                     user,
                     isAuthenticated: true,
                     isLoading: false,
+                    accessToken: token ?? get().accessToken,
                 });
             },
 
@@ -45,41 +44,31 @@ export const useAuthStore = create<AuthStore>()(
                     user: null,
                     isAuthenticated: false,
                     isLoading: false,
+                    accessToken: null,
                 });
             },
 
-            setLoading: (loading: boolean) => {
-                set({ isLoading: loading });
-            },
+            setLoading: (loading: boolean) => set({ isLoading: loading }),
 
-            // Computed getters
-            isOwner: () => {
-                const { user } = get();
-                return user?.role === "owner";
-            },
+            setAccessToken: (token: string | null) => set({ accessToken: token }),
 
-            isMember: () => {
-                const { user } = get();
-                return user?.role === "member";
-            },
+            isOwner: () => get().user?.role === "owner",
+            isMember: () => get().user?.role === "member",
         }),
         {
-            name: "auth-storage", // unique name for localStorage key
-            storage: createJSONStorage(() => localStorage), // use localStorage
+            name: "auth-storage",
+            storage: createJSONStorage(() => localStorage),
             partialize: (state) => ({
-                // Only persist these fields
+                // ✅ DO NOT persist accessToken — it expires, keep only user identity
                 user: state.user,
                 isAuthenticated: state.isAuthenticated,
             }),
             onRehydrateStorage: () => (state, error) => {
                 if (error) {
                     console.error("Error rehydrating auth store:", error);
-                    // Clear corrupted storage
                     localStorage.removeItem("auth-storage");
                     return;
                 }
-
-                // Validate rehydrated state
                 if (state?.user && !state.user.organizerId) {
                     console.warn("Invalid auth state detected, clearing...");
                     state.clearAuth();
@@ -89,16 +78,16 @@ export const useAuthStore = create<AuthStore>()(
     )
 );
 
-// Selector hooks for performance optimization
 export const useUser = () => useAuthStore((state) => state.user);
 export const useIsAuthenticated = () => useAuthStore((state) => state.isAuthenticated);
 export const useAuthLoading = () => useAuthStore((state) => state.isLoading);
 export const useIsOwner = () => useAuthStore((state) => state.isOwner());
 export const useIsMember = () => useAuthStore((state) => state.isMember());
+export const useAccessToken = () => useAuthStore((state) => state.accessToken);
 
-// Action hooks
 export const useAuthActions = () => ({
     setAuth: useAuthStore((state) => state.setAuth),
     clearAuth: useAuthStore((state) => state.clearAuth),
     setLoading: useAuthStore((state) => state.setLoading),
+    setAccessToken: useAuthStore((state) => state.setAccessToken),
 });

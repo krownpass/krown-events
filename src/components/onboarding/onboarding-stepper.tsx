@@ -1,7 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { LazyMotion, domAnimation, m } from "framer-motion";
 import { Check, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOnboardingStore } from "@/stores/onboarding-store";
@@ -57,6 +57,7 @@ export function OnboardingStepper() {
     const totalSteps = visibleSteps.length;
 
     return (
+        <LazyMotion features={domAnimation}>
         <div className="w-full space-y-6 pb-6">
             {/* Header */}
             <div className="flex items-center gap-3 px-1 md:px-0">
@@ -95,7 +96,7 @@ export function OnboardingStepper() {
                                             "group relative flex flex-col items-center focus:outline-none"
                                         )}
                                     >
-                                        <motion.div
+                                        <m.div
                                             initial={false}
                                             animate={{
                                                 scale: isActive ? 1.15 : 1,
@@ -124,7 +125,7 @@ export function OnboardingStepper() {
                                             ) : (
                                                 stepNumber
                                             )}
-                                        </motion.div>
+                                        </m.div>
 
                                         {/* Connector line between circles - only on desktop */}
                                     </Link>
@@ -157,5 +158,6 @@ export function OnboardingStepper() {
                 </div>
             </div>
         </div>
+        </LazyMotion>
     );
 }

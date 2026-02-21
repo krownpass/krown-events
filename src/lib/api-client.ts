@@ -1,5 +1,6 @@
 // lib/api-client.ts
 
+import { useAuthStore } from "@/stores/auth-store";
 import { API_BASE_URL } from "./constants";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -46,10 +47,14 @@ class ApiClient {
             ? url
             : `${this.baseUrl}${url}`;
 
+
+        const accessToken = useAuthStore.getState().accessToken;
         const requestOptions: RequestInit = {
             method,
             headers: {
                 "Content-Type": "application/json",
+
+                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
                 ...config.headers,
             },
             credentials: "include",

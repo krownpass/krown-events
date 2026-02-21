@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { apiClient } from "@/lib/api-client";
 import { VerifyEmailResult } from "./_components/verify-email-result";
+
+export const metadata: Metadata = {
+  title: "Verify Email | Krown",
+  description: "Confirm your email address to activate your Krown account.",
+};
 
 export default async function VerifyEmailPage({
   searchParams,
@@ -16,18 +22,35 @@ export default async function VerifyEmailPage({
   }
 
   let result = { success: false, error: "Verification failed" };
+  const emailParam = email || "";
 
   try {
     const response = await apiClient.post<{
       success: boolean;
       message?: string;
       error?: string;
-    }>("/events/auth/email/verify", { email: email || "", token });
+    }>("/events/auth/email/verify", { email: emailParam, token });
 
-    if (response.ok && response.data.success) {
-      result = { success: true, error: "" };
+    if (response.ok) {
+      if (response.data.success) {
+        result = { success: true, error: "" };
+      } else {
+        let errorMessage = "Verification failed";
+        if (response.data.error) {
+          errorMessage = response.data.error;
+        } else if (response.data.message) {
+          errorMessage = response.data.message;
+        }
+        result = { success: false, error: errorMessage };
+      }
     } else {
-      result = { success: false, error: response.data.error || response.data.message || "Verification failed" };
+      let errorMessage = "Verification failed";
+      if (response.data.error) {
+        errorMessage = response.data.error;
+      } else if (response.data.message) {
+        errorMessage = response.data.message;
+      }
+      result = { success: false, error: errorMessage };
     }
   } catch (error) {
     result = { success: false, error: "Network error" };

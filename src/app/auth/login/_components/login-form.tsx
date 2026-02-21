@@ -32,12 +32,15 @@ export function LoginForm() {
     const loginMutation = useMutation({
         mutationFn: authApi.login,
         onSuccess: (data) => {
-            // data = { success: true, user: { organizerId, role, type } }
-            setAuth({
-                organizerId: data.user.organizerId,  // ✅ camelCase from our API route
-                role: data.user.role,
-                type: "org_user",
-            });
+            // ✅ Pass both user and token — token stored in memory for cross-domain API calls
+            setAuth(
+                {
+                    organizerId: data.user.organizerId,
+                    role: data.user.role,
+                    type: "org_user",
+                },
+                data.token // ✅ fixed syntax — was broken with token on separate line
+            );
 
             queryClient.invalidateQueries({ queryKey: authKeys.all });
 
@@ -45,8 +48,6 @@ export function LoginForm() {
                 description: "Setting up your account...",
             });
 
-            // Cookies are already set by the Next.js API route on our domain
-            // so the onboarding server component will find them immediately
             window.location.href = "/onboarding";
         },
         onError: (error: any) => {

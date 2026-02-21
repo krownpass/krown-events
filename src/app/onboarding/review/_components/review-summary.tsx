@@ -69,7 +69,11 @@ export function ReviewSummary() {
                 queryClient.invalidateQueries({ queryKey: ["kyc"] });
                 router.push("/onboarding/status");
             } else {
-                dispatch({ type: "SUBMIT_ERROR", error: result.error ?? "Submission failed" });
+                let errorMsg = "Submission failed";
+                if (result.error) {
+                    errorMsg = result.error;
+                }
+                dispatch({ type: "SUBMIT_ERROR", error: errorMsg });
             }
         } catch (err: any) {
             dispatch({ type: "SUBMIT_ERROR", error: err.message || "Unexpected error" });

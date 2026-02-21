@@ -40,31 +40,32 @@ export default function Settings() {
 
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Organization Name</label>
-                                <Input defaultValue="Krown Event Organizers" />
+                                <label htmlFor="settings-org-name" className="text-sm font-medium">Organization Name</label>
+                                <Input id="settings-org-name" defaultValue="Krown Event Organizers" />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Username</label>
-                                <Input defaultValue="@krownevents" />
+                                <label htmlFor="settings-username" className="text-sm font-medium">Username</label>
+                                <Input id="settings-username" defaultValue="@krownevents" />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Bio</label>
+                                <label htmlFor="settings-bio" className="text-sm font-medium">Bio</label>
                                 <Textarea
+                                    id="settings-bio"
                                     defaultValue="We create unforgettable experiences. Premium events in Mumbai."
                                     className="min-h-[100px]"
                                 />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Website</label>
-                                <Input defaultValue="https://krownevents.com" />
+                                <label htmlFor="settings-website" className="text-sm font-medium">Website</label>
+                                <Input id="settings-website" defaultValue="https://krownevents.com" />
                             </div>
 
                             <div className="space-y-2">
-                                <label className="text-sm font-medium">Contact Email</label>
-                                <Input defaultValue="hello@krownevents.com" />
+                                <label htmlFor="settings-email" className="text-sm font-medium">Contact Email</label>
+                                <Input id="settings-email" defaultValue="hello@krownevents.com" />
                             </div>
 
                             <Button className="gap-2 gradient-gold text-primary-foreground">
@@ -99,16 +100,16 @@ export default function Settings() {
                             <div className="space-y-4">
                                 <h4 className="font-medium">Bank Account</h4>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Account Holder Name</label>
-                                    <Input placeholder="Enter account holder name" />
+                                    <label htmlFor="settings-account-holder" className="text-sm font-medium">Account Holder Name</label>
+                                    <Input id="settings-account-holder" placeholder="Enter account holder name" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Account Number</label>
-                                    <Input placeholder="Enter account number" />
+                                    <label htmlFor="settings-account-number" className="text-sm font-medium">Account Number</label>
+                                    <Input id="settings-account-number" placeholder="Enter account number" />
                                 </div>
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">IFSC Code</label>
-                                    <Input placeholder="Enter IFSC code" />
+                                    <label htmlFor="settings-ifsc" className="text-sm font-medium">IFSC Code</label>
+                                    <Input id="settings-ifsc" placeholder="Enter IFSC code" />
                                 </div>
                             </div>
 

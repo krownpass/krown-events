@@ -1,6 +1,7 @@
 // ─── app/admin/events/page.tsx ─────────────────────────────────────────────
 "use client";
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Plus, MoreHorizontal, ExternalLink, Copy, Share2, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -193,10 +194,12 @@ export default function EventsPage() {
                                 {/* Dynamic media: image_url with fallback */}
                                 <div className="aspect-video relative overflow-hidden">
                                     {event.image_url ? (
-                                        <img
+                                        <Image
                                             src={event.image_url}
                                             alt={event.title}
-                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                            fill
+                                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                                            className="object-cover group-hover:scale-105 transition-transform duration-300"
                                         />
                                     ) : (
                                         <div className="bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center h-full">
@@ -295,12 +298,14 @@ export default function EventsPage() {
                                     <td className="px-4 py-4">
                                         <div className="flex items-center gap-3">
                                             {/* Dynamic media thumbnail */}
-                                            <div className="w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 flex-shrink-0">
+                                            <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 flex-shrink-0">
                                                 {event.image_url ? (
-                                                    <img
+                                                    <Image
                                                         src={event.image_url}
                                                         alt={event.title}
-                                                        className="w-full h-full object-cover"
+                                                        fill
+                                                        sizes="48px"
+                                                        className="object-cover"
                                                     />
                                                 ) : (
                                                     <div className="flex items-center justify-center h-full">

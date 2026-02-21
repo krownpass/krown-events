@@ -16,7 +16,9 @@ const PROTECTED_PATHS = [
 ];
 
 const isProd = process.env.NODE_ENV === "production";
-
+const secret = process.env.JWT_SECRET;
+console.log("[MIDDLEWARE] JWT_SECRET length:", secret?.length);
+console.log("[MIDDLEWARE] JWT_SECRET first 8:", secret?.slice(0, 8));
 const accessTokenCookieOptions = {
     httpOnly: true,
     secure: isProd,

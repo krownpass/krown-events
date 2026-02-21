@@ -1,8 +1,14 @@
 // app/onboarding/page.tsx
 
+import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { API_BASE_URL, COOKIE_NAMES } from "@/lib/constants";
+
+export const metadata: Metadata = {
+  title: "Onboarding | Krown",
+  description: "Complete your onboarding to start managing events on Krown.",
+};
 
 /* ================= TYPES ================= */
 

@@ -12,41 +12,6 @@ interface BankResult {
     message?: string;
 }
 
-export async function pollBankStatusAction(
-    bankId: string
-): Promise<{ status: string; cashfree_status?: string }> {
-    const token = await getAccessToken();
-    if (!token) {
-        throw new Error("Session expired. Please log in again.");
-    }
-
-    try {
-        const { data, ok } = await apiClient.get<{
-            success: boolean;
-            data?: { status: string; cashfree_status?: string };
-            error?: string;
-            message?: string;
-        }>(`/kyc/bank/${bankId}/status`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
-
-        if (!ok) {
-            throw new Error("Network error while checking bank status");
-        }
-
-        if (!data.success || !data.data) {
-            throw new Error(data.error || data.message || "Failed to check bank status");
-        }
-
-        return data.data;
-    } catch (err: any) {
-        console.error("pollBankStatusAction error:", err);
-        throw new Error(
-            err.message || "Unable to verify bank status. Please try again later."
-        );
-    }
-}
-
 export async function submitBankAction(
     _prevState: ActionState<BankResult>,
     formData: FormData

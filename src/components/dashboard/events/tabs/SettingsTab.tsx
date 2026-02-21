@@ -107,10 +107,11 @@ export function SettingsTab({ eventId, event }: { eventId: string; event: Event 
 
                 <div className="space-y-4">
                     <div>
-                        <label className="text-sm font-medium mb-2 block">
+                        <label htmlFor="max-tickets-per-user" className="text-sm font-medium mb-2 block">
                             Max tickets per user
                         </label>
                         <Input
+                            id="max-tickets-per-user"
                             type="number"
                             value={maxTicketsPerUser}
                             onChange={(e) => setMaxTicketsPerUser(e.target.value)}

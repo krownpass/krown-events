@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { Calendar, Users, MapPin, MoreHorizontal, Share2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,10 +64,12 @@ export function EventCard({ event }: { event: Event }) {
             {/* Cover Image */}
             <div className="relative h-40 overflow-hidden">
                 {event.image_url ? (
-                    <img
+                    <Image
                         src={event.image_url}
                         alt={event.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
+                        className="object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                 ) : (
                     <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { apiClient } from "@/lib/api-client";
+import { useAuthStore, type AuthUser } from "@/stores/auth-store";
 
 interface User {
     user_id: string;
@@ -37,61 +38,66 @@ interface AuthMeResponse {
     data?: User & { token?: string };
 }
 
-interface LoginResponse {
-    data?: {
-        token?: string;
-        user?: User;
-    };
+async function doFetchUser(
+    setToken: (t: string | null) => void,
+    setUser: (u: User | null) => void,
+    setAccessToken: (t: string | null) => void,
+    setAuth: (user: AuthUser, token?: string) => void,
+    clearAuth: () => void
+) {
+    try {
+        const response = await apiClient.get("/events/auth/me");
+        const userData = (response.data as AuthMeResponse).data;
+
+        if (userData?.token) {
+            setToken(userData.token);
+            setAccessToken(userData.token);
+        }
+
+        setUser(userData ?? null);
+
+        if (userData?.type === "org_user" && userData?.organizer_id) {
+            setAuth(
+                {
+                    organizerId: userData.organizer_id,
+                    role: userData.role ?? "member",
+                    type: "org_user",
+                },
+                userData.token
+            );
+        }
+    } catch {
+        setUser(null);
+        setToken(null);
+        setAccessToken(null);
+        clearAuth();
+    }
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-const TOKEN_KEY = "krown_ws_token";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
+    // ✅ Sync token into Zustand so api-client can read it for Authorization header
+    const setAccessToken = useAuthStore((state) => state.setAccessToken);
+    const setAuth = useAuthStore((state) => state.setAuth);
+    const clearAuth = useAuthStore((state) => state.clearAuth);
+
     const fetchUser = useCallback(async () => {
-        if (typeof window === 'undefined') return;
-
-        try {
-            const response = await apiClient.get("/events/auth/me");
-
-            const userData = (response.data as AuthMeResponse).data;
-
-            if (userData?.token) {
-                localStorage.setItem(TOKEN_KEY, userData.token);
-                setToken(userData.token);
-            } else {
-                const storedToken = localStorage.getItem(TOKEN_KEY);
-                if (storedToken) {
-                    setToken(storedToken);
-                }
-            }
-
-            setUser(userData ?? null);
-        } catch {
-            setUser(null);
-            setToken(null);
-            localStorage.removeItem(TOKEN_KEY);
-        }
-    }, []);
+        if (typeof window === "undefined") return;
+        await doFetchUser(setToken, setUser, setAccessToken, setAuth, clearAuth);
+    }, [setAccessToken, setAuth, clearAuth]);
 
     useEffect(() => {
-        if (typeof window === 'undefined') return;
+        if (typeof window === "undefined") return;
 
         const initAuth = async () => {
-            const storedToken = localStorage.getItem(TOKEN_KEY);
-            if (storedToken) {
-                setToken(storedToken);
-            }
-
             try {
                 await fetchUser();
-            } catch {}
-
+            } catch { }
             setIsLoading(false);
         };
 
@@ -99,34 +105,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [fetchUser]);
 
     const login = useCallback(async (email: string, password: string) => {
-        try {
-            const response = await apiClient.post("/events/auth/login/password", { identifier: email, password });
-            const responseData = (response.data as LoginResponse).data;
-            const newToken = responseData?.token;
-            const userData = responseData?.user ?? null;
+        const response = await apiClient.post("/events/auth/login/password", {
+            identifier: email,
+            password,
+        });
+        const responseData = (response.data as any).data;
+        const newToken = responseData?.token;
+        const userData = responseData?.user ?? null;
 
-            if (newToken) {
-                localStorage.setItem(TOKEN_KEY, newToken);
-                setToken(newToken);
-            }
-
-            setUser(userData);
-        } catch (error) {
-            throw error;
+        if (newToken) {
+            setToken(newToken);
+            setAccessToken(newToken); // ✅ sync to Zustand
         }
-    }, []);
+
+        setUser(userData);
+    }, [setAccessToken]);
 
     const logout = useCallback(async () => {
         try {
             await apiClient.post("/events/auth/logout");
-        } catch {
-        } finally {
-            setUser(null);
-            setToken(null);
-            localStorage.removeItem(TOKEN_KEY);
-            window.location.href = "/auth/login";
-        }
-    }, []);
+        } catch { }
+        setUser(null);
+        setToken(null);
+        setAccessToken(null);
+        clearAuth();
+        window.location.href = "/auth/login";
+    }, [setAccessToken, clearAuth]);
 
     const refreshUser = useCallback(async () => {
         await fetchUser();

@@ -21,6 +21,21 @@ import { cn } from "@/lib/utils";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 const SCANNER_ID = "qr-checkin-scanner";
 
+async function loadCheckInData(eventId: string) {
+    const [s, p, c] = await Promise.all([
+        fetch(`${API_URL}/events/${eventId}/check-in/stats`, { credentials: "include" }),
+        fetch(`${API_URL}/events/${eventId}/check-in/pending?limit=200`, { credentials: "include" }),
+        fetch(`${API_URL}/events/${eventId}/check-in/checked-in?limit=200`, { credentials: "include" }),
+    ]);
+    let stats: CheckInStats | null = null;
+    let pendingList: PendingReg[] = [];
+    let checkedInList: CheckedInReg[] = [];
+    if (s.ok) stats = await s.json();
+    if (p.ok) { const d = await p.json(); if (d.data) { pendingList = d.data; } }
+    if (c.ok) { const d = await c.json(); if (d.data) { checkedInList = d.data; } }
+    return { stats, pendingList, checkedInList };
+}
+
 /* ─── Types ───────────────────────────────────────── */
 interface CheckInStats {
     total: number;
@@ -76,6 +91,7 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
     const [resultOk, setResultOk] = useState(false);
     const [cameraError, setCameraError] = useState<string | null>(null);
     const [debugLog, setDebugLog] = useState<{ text: string; ok?: boolean; err?: boolean }[]>([]);
+    const [refreshTick, setRefreshTick] = useState(0);
 
     // Manual booking admit UI
     const [manualRegId, setManualRegId] = useState("");
@@ -85,7 +101,11 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
     const scannerRef = useRef<Html5Qrcode | null>(null);
     const processingRef = useRef(false);
     const scanStateRef = useRef<ScanState>("idle");
-    scanStateRef.current = scanState;
+    const scanFramesRef = useRef({ count: 0, lastLog: 0 });
+
+    useEffect(() => {
+        scanStateRef.current = scanState;
+    }, [scanState]);
 
     /* ─── Log ──────────────────────────────────────── */
     const log = useCallback((msg: string, ok?: boolean, err?: boolean) => {
@@ -94,26 +114,27 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
     }, []);
 
     /* ─── Fetch Data ───────────────────────────────── */
-    const fetchAll = useCallback(async () => {
-        try {
-            const [s, p, c] = await Promise.all([
-                fetch(`${API_URL}/events/${eventId}/check-in/stats`, { credentials: "include" }),
-                fetch(`${API_URL}/events/${eventId}/check-in/pending?limit=200`, { credentials: "include" }),
-                fetch(`${API_URL}/events/${eventId}/check-in/checked-in?limit=200`, { credentials: "include" }),
-            ]);
-            if (s.ok) setStats(await s.json());
-            if (p.ok) { const d = await p.json(); setPendingList(d.data || []); }
-            if (c.ok) { const d = await c.json(); setCheckedInList(d.data || []); }
-        } catch (e) { console.error("[CheckIn] fetchAll:", e); }
-    }, [eventId]);
+    const fetchAll = useCallback(() => {
+        setRefreshTick((t) => t + 1);
+    }, []);
 
-    useEffect(() => { fetchAll(); }, [fetchAll]);
+    useEffect(() => {
+        let cancelled = false;
+        loadCheckInData(eventId).then((result) => {
+            if (cancelled) return;
+            setStats(result.stats);
+            setPendingList(result.pendingList);
+            setCheckedInList(result.checkedInList);
+        }).catch((e) => console.error("[CheckIn] fetchAll:", e));
+        return () => { cancelled = true; };
+    }, [eventId, refreshTick]);
 
     /* ─── Scanner Cleanup ──────────────────────────── */
     const destroyScanner = useCallback(async () => {
-        if (!scannerRef.current) return;
-        try { if (scannerRef.current.isScanning) await scannerRef.current.stop(); } catch { }
-        try { scannerRef.current.clear(); } catch { }
+        const scanner = scannerRef.current;
+        if (!scanner) return;
+        try { if (scanner.isScanning) await scanner.stop(); } catch { }
+        try { scanner.clear(); } catch { }
         scannerRef.current = null;
     }, []);
     useEffect(() => () => { destroyScanner(); }, [destroyScanner]);
@@ -124,7 +145,7 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
         setBooking(null);
         setResultMsg("");
         setScanState("ready");
-        try { scannerRef.current?.resume(); } catch { }
+        try { if (scannerRef.current) { scannerRef.current.resume(); } } catch { }
     }, []);
 
     /* ─── Admit one ticket (shared by scan + manual) ─ */
@@ -142,7 +163,7 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
             const data = await res.json();
             if (data.success) {
                 const updated: BookingInfo = data.registration;
-                onUpdate?.(updated);
+                if (onUpdate) { onUpdate(updated); }
                 log(`✓ ${updated.admitted_count}/${updated.ticket_count} admitted`, true);
                 toast.success(`Ticket ${updated.admitted_count}/${updated.ticket_count} admitted`);
                 fetchAll();
@@ -164,9 +185,8 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
         } catch {
             log("Network error", false, true);
             toast.error("Network error");
-        } finally {
-            setAdmitting(false);
         }
+        setAdmitting(false);
     }, [admitting, eventId, fetchAll, log, resumeForNextScan]);
 
     /* ─── QR Scan Handler ──────────────────────────── */
@@ -175,7 +195,7 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
         processingRef.current = true;
         setScanState("processing");
         log("QR decoded — looking up booking...");
-        try { scannerRef.current?.pause(true); } catch { }
+        try { if (scannerRef.current) { scannerRef.current.pause(true); } } catch { }
 
         try {
             const res = await fetch(`${API_URL}/events/${eventId}/check-in/qr-lookup`, {
@@ -246,7 +266,8 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
         try {
             const scanner = new Html5Qrcode(SCANNER_ID);
             scannerRef.current = scanner;
-            let frames = 0, lastLog = Date.now();
+            scanFramesRef.current.count = 0;
+            scanFramesRef.current.lastLog = Date.now();
 
             await scanner.start(
                 { facingMode: "environment" },
@@ -264,17 +285,20 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                     handleScan(decoded);
                 },
                 () => {
-                    frames++;
-                    if (Date.now() - lastLog > 2000) {
-                        log(`Scanning... (${frames} frames, no QR yet)`);
-                        frames = 0; lastLog = Date.now();
+                    const sf = scanFramesRef.current;
+                    sf.count = sf.count + 1;
+                    if (Date.now() - sf.lastLog > 2000) {
+                        log(`Scanning... (${sf.count} frames, no QR yet)`);
+                        sf.count = 0;
+                        sf.lastLog = Date.now();
                     }
                 }
             );
             log("Camera started ✓", true);
             setScanState("ready");
         } catch (err: any) {
-            const msg = err?.message || "Camera failed";
+            let msg = "Camera failed";
+            if (err && err.message) { msg = err.message; }
             log("Camera error: " + msg, false, true);
             setCameraError(msg);
             setScanState("idle");
@@ -320,9 +344,8 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
             }
         } catch {
             toast.error("Network error");
-        } finally {
-            setIsLoading(false);
         }
+        setIsLoading(false);
     };
 
     /* ─── Bulk / Admit All ─────────────────────────── */
@@ -337,11 +360,20 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                 body: JSON.stringify({ registration_ids: Array.from(selectedIds), method: "BULK" }),
             });
             const result = await res.json();
-            toast.success(`Admitted ${result.summary?.admitted ?? 0} of ${result.summary?.total ?? 0}`);
+            const summary = result.summary;
+            let admitted = 0;
+            let total = 0;
+            if (summary) {
+                admitted = summary.admitted;
+                total = summary.total;
+            }
+            toast.success(`Admitted ${admitted} of ${total}`);
             setSelectedIds(new Set());
             fetchAll();
-        } catch { toast.error("Bulk check-in failed"); }
-        finally { setIsLoading(false); }
+        } catch {
+            toast.error("Bulk check-in failed");
+        }
+        setIsLoading(false);
     };
 
     const handleAdmitAll = async () => {
@@ -352,10 +384,14 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                 method: "POST", credentials: "include",
             });
             const result = await res.json();
-            toast.success(`Admitted ${result.summary?.admitted ?? 0}`);
+            let admittedCount = 0;
+            if (result.summary) { admittedCount = result.summary.admitted; }
+            toast.success(`Admitted ${admittedCount}`);
             fetchAll();
-        } catch { toast.error("Failed"); }
-        finally { setIsLoading(false); }
+        } catch {
+            toast.error("Failed");
+        }
+        setIsLoading(false);
     };
 
     /* ─── Selection ────────────────────────────────── */
@@ -389,8 +425,8 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                     { label: "Checked In", value: stats?.checkedIn ?? 0, color: "text-green-500" },
                     { label: "Pending", value: stats?.pending ?? 0, color: "text-yellow-500" },
                     { label: "Progress", value: `${stats?.percentage ?? 0}%`, color: "", progress: stats?.percentage },
-                ].map((s, i) => (
-                    <Card key={i}>
+                ].map((s) => (
+                    <Card key={s.label}>
                         <CardHeader className="pb-2">
                             <CardTitle className="text-xs text-muted-foreground">{s.label}</CardTitle>
                         </CardHeader>
@@ -494,8 +530,8 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                         {/* Debug log */}
                         {debugLog.length > 0 && (
                             <div className="bg-gray-950 rounded-lg p-2 text-xs font-mono max-h-36 overflow-auto space-y-px">
-                                {debugLog.map((l, i) => (
-                                    <div key={i} className={cn(
+                                {debugLog.map((l) => (
+                                    <div key={l.text} className={cn(
                                         "leading-relaxed",
                                         l.err ? "text-red-400" :
                                             l.ok ? "text-green-400" :

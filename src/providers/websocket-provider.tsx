@@ -210,8 +210,10 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
           startHeartbeat();
           
           const nextOrganizerId = organizerIdRef.current;
-          if (nextOrganizerId && !hasJoinedOrganizerRoomRef.current) {
-            joinOrganizerRoom(nextOrganizerId);
+          if (nextOrganizerId) {
+            if (!hasJoinedOrganizerRoomRef.current) {
+              joinOrganizerRoom(nextOrganizerId);
+            }
           }
           return;
         }
@@ -240,25 +242,25 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
         if (message.type === "REGISTRATION_NEW") {
           const payload = message.payload;
-          if (payload?.event_id) {
-            patchEventCaches(payload.event_id, {
-              current_registrations: payload.current_registrations,
-            });
-            queryClient.invalidateQueries({ queryKey: ["events", payload.event_id, "attendees"] });
-            queryClient.invalidateQueries({ queryKey: ["events", payload.event_id, "dashboard"] });
-            queryClient.invalidateQueries({ queryKey: ["events", payload.event_id, "waitlist"] });
-            queryClient.invalidateQueries({ queryKey: ["events", "organizer"] });
-            queryClient.invalidateQueries({ queryKey: ["events", "list"] });
+          if (payload) {
+            const eid = payload.event_id;
+            if (eid) {
+              patchEventCaches(eid, { current_registrations: payload.current_registrations });
+              queryClient.invalidateQueries({ queryKey: ["events", eid, "attendees"] });
+              queryClient.invalidateQueries({ queryKey: ["events", eid, "dashboard"] });
+              queryClient.invalidateQueries({ queryKey: ["events", eid, "waitlist"] });
+              queryClient.invalidateQueries({ queryKey: ["events", "organizer"] });
+              queryClient.invalidateQueries({ queryKey: ["events", "list"] });
+            }
           }
           return;
         }
 
         if (message.type === "REGISTRATION_COUNT_UPDATED") {
-          if (message.event_id) {
-            patchEventCaches(message.event_id, {
-              current_registrations: message.current_registrations,
-            });
-            queryClient.invalidateQueries({ queryKey: ["events", message.event_id, "dashboard"] });
+          const eid = message.event_id;
+          if (eid) {
+            patchEventCaches(eid, { current_registrations: message.current_registrations });
+            queryClient.invalidateQueries({ queryKey: ["events", eid, "dashboard"] });
             queryClient.invalidateQueries({ queryKey: ["events", "organizer"] });
             queryClient.invalidateQueries({ queryKey: ["events", "list"] });
           }
@@ -267,36 +269,43 @@ export function WebSocketProvider({ children }: { children: React.ReactNode }) {
 
         if (message.type === "WAITLIST_NEW") {
           const payload = message.payload;
-          if (payload?.event_id) {
-            queryClient.invalidateQueries({ queryKey: ["events", payload.event_id, "waitlist"] });
-            queryClient.invalidateQueries({ queryKey: ["events", payload.event_id, "dashboard"] });
+          if (payload) {
+            const eid = payload.event_id;
+            if (eid) {
+              queryClient.invalidateQueries({ queryKey: ["events", eid, "waitlist"] });
+              queryClient.invalidateQueries({ queryKey: ["events", eid, "dashboard"] });
+            }
           }
           return;
         }
 
         if (message.type === "EVENT_UPDATED") {
           const payload = message.payload;
-          if (payload?.event_id) {
-            patchEventCaches(payload.event_id, payload.value as MessageRecord);
-            queryClient.invalidateQueries({ queryKey: ["events", "detail", payload.event_id] });
-            queryClient.invalidateQueries({ queryKey: ["events", payload.event_id, "dashboard"] });
-            queryClient.invalidateQueries({ queryKey: ["events", payload.event_id, "attendees"] });
-            queryClient.invalidateQueries({ queryKey: ["events", payload.event_id, "waitlist"] });
-            queryClient.invalidateQueries({ queryKey: ["events", "organizer"] });
-            queryClient.invalidateQueries({ queryKey: ["events", "list"] });
+          if (payload) {
+            const eid = payload.event_id;
+            if (eid) {
+              patchEventCaches(eid, payload.value as MessageRecord);
+              queryClient.invalidateQueries({ queryKey: ["events", "detail", eid] });
+              queryClient.invalidateQueries({ queryKey: ["events", eid, "dashboard"] });
+              queryClient.invalidateQueries({ queryKey: ["events", eid, "attendees"] });
+              queryClient.invalidateQueries({ queryKey: ["events", eid, "waitlist"] });
+              queryClient.invalidateQueries({ queryKey: ["events", "organizer"] });
+              queryClient.invalidateQueries({ queryKey: ["events", "list"] });
+            }
           }
           return;
         }
 
         if (message.type === "REGISTRATION_TOGGLED") {
           const payload = message.payload;
-          if (payload?.event_id) {
-            patchEventCaches(payload.event_id, {
-              is_registration_open: payload.is_registration_open,
-            });
-            queryClient.invalidateQueries({ queryKey: ["events", payload.event_id, "dashboard"] });
-            queryClient.invalidateQueries({ queryKey: ["events", "organizer"] });
-            queryClient.invalidateQueries({ queryKey: ["events", "list"] });
+          if (payload) {
+            const eid = payload.event_id;
+            if (eid) {
+              patchEventCaches(eid, { is_registration_open: payload.is_registration_open });
+              queryClient.invalidateQueries({ queryKey: ["events", eid, "dashboard"] });
+              queryClient.invalidateQueries({ queryKey: ["events", "organizer"] });
+              queryClient.invalidateQueries({ queryKey: ["events", "list"] });
+            }
           }
           return;
         }

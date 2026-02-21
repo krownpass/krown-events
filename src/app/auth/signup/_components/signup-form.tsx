@@ -4,9 +4,10 @@ import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+import { LazyMotion, domAnimation, m, AnimatePresence } from "framer-motion";
 import {
     Loader2,
     Eye,
@@ -254,6 +255,7 @@ export function SignupForm() {
     // ── Render ────────────────────────────────────────────────────────
 
     return (
+        <LazyMotion features={domAnimation}>
         <div className="space-y-6">
             {/* Header */}
             <div>
@@ -301,7 +303,7 @@ export function SignupForm() {
                 </div>
                 {/* Contact + Verification */}
                 <AnimatePresence mode="wait">
-                    <motion.div
+                    <m.div
                         key={channel}
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -345,7 +347,7 @@ export function SignupForm() {
 
                                 <AnimatePresence>
                                     {emailState.sentAt && !emailState.verified && (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
+                                        <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
                                             <Label>6-digit code</Label>
                                             <div className="flex gap-2">
                                                 <InputOTP
@@ -367,7 +369,7 @@ export function SignupForm() {
                                                     {verifyEmail.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
                                                 </Button>
                                             </div>
-                                        </motion.div>
+                                        </m.div>
                                     )}
                                 </AnimatePresence>
 
@@ -432,7 +434,7 @@ export function SignupForm() {
 
                                 <AnimatePresence>
                                     {phoneState.sentAt && !phoneState.verified && (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
+                                        <m.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-2">
                                             <Label>6-digit OTP</Label>
                                             <div className="flex gap-2">
                                                 <InputOTP
@@ -454,7 +456,7 @@ export function SignupForm() {
                                                     {verifyMobileOtp.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
                                                 </Button>
                                             </div>
-                                        </motion.div>
+                                        </m.div>
                                     )}
                                 </AnimatePresence>
 
@@ -484,7 +486,7 @@ export function SignupForm() {
                                 )}
                             </>
                         )}
-                    </motion.div>
+                    </m.div>
                 </AnimatePresence>
 
                 {/* Password */}
@@ -518,13 +520,13 @@ export function SignupForm() {
                     />
                     <Label htmlFor="terms" className="text-sm leading-tight">
                         I accept the{" "}
-                        <a href="/terms" className="text-primary hover:underline">
+                        <Link href="/terms" className="text-primary hover:underline">
                             Terms
-                        </a>{" "}
+                        </Link>{" "}
                         and{" "}
-                        <a href="/privacy" className="text-primary hover:underline">
+                        <Link href="/privacy" className="text-primary hover:underline">
                             Privacy Policy
-                        </a>
+                        </Link>
                     </Label>
                 </div>
 
@@ -543,5 +545,6 @@ export function SignupForm() {
                 </Button>
             </form>
         </div>
+        </LazyMotion>
     );
 }

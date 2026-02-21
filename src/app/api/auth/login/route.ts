@@ -35,10 +35,13 @@ export async function POST(request: NextRequest) {
 
         const { user, token, refresh_token } = data.data;
 
+        // ✅ token is now returned in the JSON body so the client
+        //    can store it in memory (Zustand) for cross-domain API calls
         const response = NextResponse.json({
             success: true,
+            token,                          // ✅ added
             user: {
-                organizerId: user.organizer_id,  // map to camelCase for frontend
+                organizerId: user.organizer_id,
                 role: user.role,
                 type: "org_user",
             },

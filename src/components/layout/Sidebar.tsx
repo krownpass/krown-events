@@ -109,7 +109,10 @@ export function Sidebar({ isMobileOpen, onClose }: SidebarProps) {
     return (
         <>
             <div
+                role="button"
+                tabIndex={-1}
                 onClick={onClose}
+                onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter") onClose(); }}
                 className={cn(
                     "fixed inset-0 z-30 bg-black/50 transition-opacity lg:hidden",
                     isMobileOpen ? "opacity-100" : "pointer-events-none opacity-0"

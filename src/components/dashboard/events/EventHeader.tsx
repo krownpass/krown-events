@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -28,6 +29,21 @@ import {
 import { cn } from "@/lib/utils";
 import { useUpdateEventStatus, useDeleteEvent, type Event } from "@/hooks";
 import { useState } from "react";
+
+async function doToggleRegistration(eventId: string, isOpen: boolean): Promise<void> {
+    const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/events/${eventId}/registration/toggle`,
+        {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ is_open: isOpen }),
+        }
+    );
+    if (!response.ok) {
+        throw new Error("Failed to toggle registration");
+    }
+}
 
 const statusStyles: Record<string, string> = {
     DRAFT: "bg-muted text-muted-foreground",
@@ -71,32 +87,26 @@ export function EventHeader({ event }: { event: Event }) {
 
     const handleToggleRegistration = async () => {
         const newStatus = !event.is_registration_open;
+        const statusLabel = newStatus ? "opened" : "closed";
         setIsTogglingRegistration(true);
-        
+        let succeeded = false;
+        let errorMsg = "";
         try {
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/events/${event.event_id}/registration/toggle`,
-                {
-                    method: "PATCH",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    credentials: "include",
-                    body: JSON.stringify({ is_open: newStatus }),
-                }
-            );
-
-            if (!response.ok) {
-                throw new Error("Failed to toggle registration");
-            }
-
-            toast.success(`Registration ${newStatus ? "opened" : "closed"}`);
-            router.refresh();
+            await doToggleRegistration(event.event_id, newStatus);
+            succeeded = true;
         } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "Failed to toggle registration";
-            toast.error(message);
-        } finally {
-            setIsTogglingRegistration(false);
+            if (err instanceof Error) {
+                errorMsg = err.message;
+            } else {
+                errorMsg = "Failed to toggle registration";
+            }
+        }
+        setIsTogglingRegistration(false);
+        if (succeeded) {
+            toast.success(`Registration ${statusLabel}`);
+            router.refresh();
+        } else {
+            toast.error(errorMsg);
         }
     };
 
@@ -145,12 +155,14 @@ export function EventHeader({ event }: { event: Event }) {
                         </Link>
                     </Button>
 
-                    <div className="h-16 w-16 overflow-hidden rounded-lg flex-shrink-0 sm:h-20 sm:w-20">
+                    <div className="relative h-16 w-16 overflow-hidden rounded-lg flex-shrink-0 sm:h-20 sm:w-20">
                         {event.image_url ? (
-                            <img
+                            <Image
                                 src={event.image_url}
                                 alt={event.title}
-                                className="h-full w-full object-cover"
+                                fill
+                                sizes="80px"
+                                className="object-cover"
                             />
                         ) : (
                             <div className="flex h-full items-center justify-center bg-gradient-to-br from-primary/20 to-primary/5">

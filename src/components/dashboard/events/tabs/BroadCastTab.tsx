@@ -54,8 +54,9 @@ export function BroadcastTab({ eventId }: { eventId: string }) {
 
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">Subject</label>
+                        <label htmlFor="broadcast-subject" className="text-sm font-medium">Subject</label>
                         <Input
+                            id="broadcast-subject"
                             placeholder="Enter announcement subject..."
                             value={subject}
                             onChange={(e) => setSubject(e.target.value)}
@@ -63,8 +64,9 @@ export function BroadcastTab({ eventId }: { eventId: string }) {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-sm font-medium">Message</label>
+                        <label htmlFor="broadcast-message" className="text-sm font-medium">Message</label>
                         <Textarea
+                            id="broadcast-message"
                             placeholder="Write your message..."
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
