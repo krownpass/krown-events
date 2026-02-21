@@ -38,42 +38,6 @@ interface AuthMeResponse {
     data?: User & { token?: string };
 }
 
-async function doFetchUser(
-    setToken: (t: string | null) => void,
-    setUser: (u: User | null) => void,
-    setAccessToken: (t: string | null) => void,
-    setAuth: (user: AuthUser, token?: string) => void,
-    clearAuth: () => void
-) {
-    try {
-        const response = await apiClient.get("/events/auth/me");
-        const userData = (response.data as AuthMeResponse).data;
-
-        if (userData?.token) {
-            setToken(userData.token);
-            setAccessToken(userData.token);
-        }
-
-        setUser(userData ?? null);
-
-        if (userData?.type === "org_user" && userData?.organizer_id) {
-            setAuth(
-                {
-                    organizerId: userData.organizer_id,
-                    role: userData.role ?? "member",
-                    type: "org_user",
-                },
-                userData.token
-            );
-        }
-    } catch {
-        setUser(null);
-        setToken(null);
-        setAccessToken(null);
-        clearAuth();
-    }
-}
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -81,14 +45,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [token, setToken] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // ✅ Sync token into Zustand so api-client can read it for Authorization header
     const setAccessToken = useAuthStore((state) => state.setAccessToken);
     const setAuth = useAuthStore((state) => state.setAuth);
     const clearAuth = useAuthStore((state) => state.clearAuth);
 
     const fetchUser = useCallback(async () => {
         if (typeof window === "undefined") return;
-        await doFetchUser(setToken, setUser, setAccessToken, setAuth, clearAuth);
+
+        try {
+            // ✅ Step 1: On page refresh, Zustand memory is empty.
+            // Seed the token from the httpOnly cookie via same-domain Next.js route
+            // so api-client can send Authorization header to api.krownpass.com
+            if (!useAuthStore.getState().accessToken) {
+                try {
+                    const tokenRes = await fetch("/api/auth/token");
+                    if (tokenRes.ok) {
+                        const { token: cookieToken } = await tokenRes.json();
+                        if (cookieToken) {
+                            setAccessToken(cookieToken);
+                        }
+                    }
+                } catch {
+                    // No cookie token — user needs to log in
+                }
+            }
+
+            // ✅ Step 2: Now api-client has token in Zustand,
+            // so this request will include Authorization: Bearer <token>
+            const response = await apiClient.get("/events/auth/me");
+            const userData = (response.data as AuthMeResponse).data;
+
+            // ✅ Step 3: /me returns a fresh token — update Zustand with it
+            if (userData?.token) {
+                setToken(userData.token);
+                setAccessToken(userData.token);
+            }
+
+            setUser(userData ?? null);
+
+            if (userData?.type === "org_user" && userData?.organizer_id) {
+                setAuth(
+                    {
+                        organizerId: userData.organizer_id,
+                        role: userData.role ?? "member",
+                        type: "org_user",
+                    },
+                    userData.token
+                );
+            }
+        } catch {
+            // /me failed — clear everything
+            setUser(null);
+            setToken(null);
+            setAccessToken(null);
+            clearAuth();
+        }
     }, [setAccessToken, setAuth, clearAuth]);
 
     useEffect(() => {
@@ -115,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (newToken) {
             setToken(newToken);
-            setAccessToken(newToken); // ✅ sync to Zustand
+            setAccessToken(newToken);
         }
 
         setUser(userData);
