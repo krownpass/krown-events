@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Html5Qrcode } from "html5-qrcode";
 import {
     Camera, CheckCircle2, XCircle, Users,
@@ -18,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api-client";
+import { useAuthStore } from "@/stores/auth-store";
 
 const SCANNER_ID = "qr-checkin-scanner";
 
@@ -76,6 +78,18 @@ type ScanState =
 
 /* ─── Component ───────────────────────────────────── */
 export function CheckInScannerTab({ eventId }: { eventId: string }) {
+    const router = useRouter();
+
+    // ✅ FIX: Auth guard — redirect to login if not authenticated or no token
+    const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+    const accessToken = useAuthStore((s) => s.accessToken);
+
+    useEffect(() => {
+        if (!isAuthenticated || !accessToken) {
+            router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+        }
+    }, [isAuthenticated, accessToken, router]);
+
     const [scanState, setScanState] = useState<ScanState>("idle");
     const [stats, setStats] = useState<CheckInStats | null>(null);
     const [pendingList, setPendingList] = useState<PendingReg[]>([]);
@@ -183,8 +197,9 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                 toast.error(data.message);
             }
         } catch (e: any) {
-            const msg = e?.response?.data?.message ?? "Network error";
-            log(msg, false, true);
+            // ✅ FIX: ApiError has .message directly, not .response.data.message
+            const msg = e?.message ?? "Network error";
+            log(`${msg} (status: ${e?.status ?? 0})`, false, true);
             toast.error(msg);
         }
         setAdmitting(false);
@@ -228,8 +243,10 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
             setBooking(reg);
             setScanState("booking_shown");
         } catch (e: any) {
-            const msg = e?.response?.data?.message ?? "Server error — try again";
-            log(msg, false, true);
+            // ✅ FIX: ApiError has .message and .status directly
+            const msg = e?.message ?? "Server error — try again";
+            const status = e?.status ?? 0;
+            log(`${msg} (status: ${status})`, false, true);
             setResultMsg(msg);
             setResultOk(false);
             setScanState("result_fail");
@@ -335,8 +352,9 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                 toast.error(data.message);
             }
         } catch (e: any) {
-            const msg = e?.response?.data?.message ?? "Network error";
-            log(msg, false, true);
+            // ✅ FIX: ApiError has .message directly
+            const msg = e?.message ?? "Network error";
+            log(`${msg} (status: ${e?.status ?? 0})`, false, true);
             toast.error(msg);
         }
         setIsLoading(false);
@@ -355,8 +373,9 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
             toast.success(`Admitted ${summary?.admitted ?? 0} of ${summary?.total ?? 0}`);
             setSelectedIds(new Set());
             fetchAll();
-        } catch {
-            toast.error("Bulk check-in failed");
+        } catch (e: any) {
+            // ✅ FIX: ApiError has .message directly
+            toast.error(e?.message ?? "Bulk check-in failed");
         }
         setIsLoading(false);
     };
@@ -369,8 +388,9 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
             const admittedCount = res.data?.summary?.admitted ?? 0;
             toast.success(`Admitted ${admittedCount}`);
             fetchAll();
-        } catch {
-            toast.error("Failed");
+        } catch (e: any) {
+            // ✅ FIX: ApiError has .message directly
+            toast.error(e?.message ?? "Failed to admit all");
         }
         setIsLoading(false);
     };
@@ -392,7 +412,8 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
                 toast.error(data.message);
             }
         } catch (e: any) {
-            toast.error(e?.response?.data?.message ?? "Network error");
+            // ✅ FIX: ApiError has .message directly
+            toast.error(e?.message ?? "Network error");
         }
     };
 
@@ -416,6 +437,15 @@ export function CheckInScannerTab({ eventId }: { eventId: string }) {
     const manualRemaining = manualBooking
         ? manualBooking.ticket_count - manualBooking.admitted_count
         : 0;
+
+    // Don't render if not authenticated (redirect is in progress)
+    if (!isAuthenticated || !accessToken) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+        );
+    }
 
     /* ─── Render ───────────────────────────────────── */
     return (
