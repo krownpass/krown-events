@@ -5,17 +5,24 @@ import { apiClient } from "@/lib/api-client";
 import { getAccessToken } from "@/lib/auth";
 import type { ActionState } from "@/types/api";
 
-interface BankResult {
+export interface RpdCreateResult {
     status: string;
     bank_id?: string;
-    masked_account?: string;
-    message?: string;
+    ref_id?: number;
+    verification_id?: string;
+    valid_upto?: string;
+    upi_link?: string;
+    gpay?: string;
+    bhim?: string;
+    paytm?: string;
+    phonepe?: string;
+    qr_code?: string;
 }
 
 export async function submitBankAction(
-    _prevState: ActionState<BankResult>,
+    _prevState: ActionState<RpdCreateResult>,
     formData: FormData
-): Promise<ActionState<BankResult>> {
+): Promise<ActionState<RpdCreateResult>> {
     const token = await getAccessToken();
     if (!token) {
         return {
@@ -24,27 +31,19 @@ export async function submitBankAction(
         };
     }
 
-    // Extract values safely (avoid type assertion pitfalls)
     const raw = {
-        account_holder_name: formData.get("account_holder_name")?.toString() ?? "",
-        account_number: formData.get("account_number")?.toString() ?? "",
-        ifsc_code: formData.get("ifsc_code")?.toString() ?? "",
-        account_type: (formData.get("account_type")?.toString() ?? "savings").trim(),
-        is_primary: true,
+        account_holder_name:
+            formData.get("account_holder_name")?.toString() ?? "",
     };
 
-    // Zod validation
     const parsed = bankFormSchema.safeParse(raw);
-
     if (!parsed.success) {
         const fieldErrors: Record<string, string[]> = {};
-
         parsed.error.issues.forEach((issue) => {
             const key = issue.path[0]?.toString() ?? "unknown";
             fieldErrors[key] = fieldErrors[key] ?? [];
             fieldErrors[key].push(issue.message);
         });
-
         return {
             success: false,
             error: "Please check the form fields",
@@ -53,36 +52,52 @@ export async function submitBankAction(
     }
 
     try {
+        // POST /kyc/bank — backend creates Cashfree RPD and returns UPI links
         const { data, ok } = await apiClient.post<{
             success: boolean;
-            data?: BankResult;
+            data?: {
+                ref_id: number;
+                verification_id: string;
+                status: string;
+                valid_upto: string;
+                upi_link: string;
+                gpay: string;
+                bhim: string;
+                paytm: string;
+                phonepe: string;
+                qr_code: string;
+            };
             message?: string;
             error?: string;
-        }>("/kyc/bank", parsed.data, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        }>(
+            "/kyc/bank",
+            { name: parsed.data.account_holder_name },
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-        if (!ok) {
+        if (!ok || !data?.success || !data.data) {
             return {
                 success: false,
-                error: "Network error during submission. Please try again.",
-            };
-        }
-
-        if (!data.success) {
-            return {
-                success: false,
-                error: data.message || data.error || "Bank submission failed",
+                error:
+                    data?.message ||
+                    data?.error ||
+                    "Failed to initiate bank verification",
             };
         }
 
         return {
             success: true,
             data: {
-                status: data.data?.status ?? "pending",
-                bank_id: data.data?.bank_id,
-                masked_account: data.data?.masked_account,
-                message: data.data?.message,
+                status: data.data.status,
+                ref_id: data.data.ref_id,
+                verification_id: data.data.verification_id,
+                valid_upto: data.data.valid_upto,
+                upi_link: data.data.upi_link,
+                gpay: data.data.gpay,
+                bhim: data.data.bhim,
+                paytm: data.data.paytm,
+                phonepe: data.data.phonepe,
+                qr_code: data.data.qr_code,
             },
         };
     } catch (err: any) {

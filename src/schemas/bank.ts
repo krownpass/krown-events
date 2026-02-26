@@ -1,43 +1,59 @@
 import { z } from "zod";
 
+// ─── Create RPD Request (form input) ─────────────────────────────────────────
+// RPD only requires the account holder name. Cashfree extracts bank details
+// from the ₹1 UPI payment the user makes.
 export const bankFormSchema = z.object({
-  account_holder_name: z
-    .string()
-    .min(2, "Account holder name is required")
-    .max(200),
-  account_number: z
-    .string()
-    .min(9, "Invalid account number")
-    .max(18, "Invalid account number")
-    .regex(/^\d+$/, "Account number must contain only digits"),
-  ifsc_code: z
-    .string()
-    .transform((val) => val.toUpperCase().trim())
-    .refine((val) => /^[A-Z]{4}0[A-Z0-9]{6}$/.test(val), {
-      message: "Invalid IFSC code (e.g., SBIN0001234)",
-    }),
-  account_type: z.enum(["savings", "current"]),
-  is_primary: z.boolean(),
+    account_holder_name: z
+        .string()
+        .min(2, "Account holder name is required")
+        .max(200),
 });
 
+// ─── Create RPD Response ─────────────────────────────────────────────────────
+export const rpdCreateResponseSchema = z.object({
+    success: z.boolean(),
+    message: z.string().optional(),
+    data: z
+        .object({
+            ref_id: z.number(),
+            verification_id: z.string(),
+            status: z.string(),
+            valid_upto: z.string(),
+            upi_link: z.string(),
+            gpay: z.string(),
+            bhim: z.string(),
+            paytm: z.string(),
+            phonepe: z.string(),
+            qr_code: z.string(), // base64 QR image
+        })
+        .optional(),
+    error: z.string().optional(),
+});
+
+// ─── Poll RPD Status Response ────────────────────────────────────────────────
 export const bankStatusResponseSchema = z.object({
-  success: z.boolean(),
-  data: z
-    .object({
-      bank_id: z.string().optional(),
-      status: z.enum([
-        "not_started",
-        "pending",
-        "verified",
-        "failed",
-        "manual_review",
-      ]),
-      masked_account: z.string().optional(),
-      bank_name: z.string().optional(),
-      branch_name: z.string().optional(),
-      name_match_score: z.number().optional(),
-      message: z.string().optional(),
-    })
-    .optional(),
-  message: z.string().optional(),
+    success: z.boolean(),
+    data: z
+        .object({
+            bank_id: z.string().optional(),
+            status: z.enum([
+                "not_started",
+                "pending",
+                "verified",
+                "failed",
+                "manual_review",
+            ]),
+            rpd_status: z.string().optional(),
+            masked_account: z.string().optional(),
+            masked_ifsc: z.string().optional(),
+            name_at_bank: z.string().optional(),
+            name_match_score: z.string().optional(),
+            name_match_result: z.string().optional(),
+            account_type: z.string().optional(),
+            reversal_status: z.string().optional(),
+            message: z.string().optional(),
+        })
+        .optional(),
+    message: z.string().optional(),
 });
