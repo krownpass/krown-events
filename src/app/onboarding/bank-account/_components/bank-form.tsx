@@ -20,7 +20,7 @@ import { bankFormSchema } from "@/schemas/bank";
 import type { ActionState } from "@/types/api";
 import { submitBankAction, type RpdCreateResult } from "@/actions/kyc-bank";
 import { useOnboardingStore } from "@/stores/onboarding-store";
-import { useBankStatus } from "@/hooks/use-bank-status";
+import { useBankStatus, type BankStatusResponse } from "@/hooks/use-bank-status";
 
 import { StepCard } from "@/components/onboarding/step-card";
 import { Button } from "@/components/ui/button";
@@ -126,7 +126,7 @@ export function BankForm() {
     const { data: bankStatus, isLoading: isPolling } = useBankStatus(
         pollId,
         shouldPoll
-    );
+    ) as { data: BankStatusResponse | undefined; isLoading: boolean };
 
     // Transition to result when terminal
     useEffect(() => {
@@ -348,7 +348,7 @@ export function BankForm() {
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 Waiting for payment confirmation...
                             </div>
-                            {bankStatus && bankStatus.rpd_status && (
+                            {bankStatus?.rpd_status && (
                                 <p className="text-xs text-muted-foreground">
                                     Status:{" "}
                                     <span className="font-medium capitalize">
