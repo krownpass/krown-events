@@ -29,20 +29,12 @@ import {
 import { cn } from "@/lib/utils";
 import { useUpdateEventStatus, useDeleteEvent, type Event } from "@/hooks";
 import { useState } from "react";
+import { apiClient } from "@/lib/api-client";
 
 async function doToggleRegistration(eventId: string, isOpen: boolean): Promise<void> {
-    const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/events/${eventId}/registration/toggle`,
-        {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ is_open: isOpen }),
-        }
-    );
-    if (!response.ok) {
-        throw new Error("Failed to toggle registration");
-    }
+    await apiClient.patch(`/events/${eventId}/registration/toggle`, {
+        is_open: isOpen,
+    });
 }
 
 const statusStyles: Record<string, string> = {

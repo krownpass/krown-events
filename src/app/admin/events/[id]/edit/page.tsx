@@ -67,6 +67,7 @@ export default function EditEventPage({
             </div>
 
             <EventForm
+                eventId={id}
                 defaultValues={{
                     title: event.title,
                     description: event.description,
@@ -77,7 +78,9 @@ export default function EditEventPage({
                     venue_name: event.venue_name,
                     venue_address: event.venue_address,
                     venue_city: event.venue_city,
-                    venue_state: event.venue_state,
+                    venue_state: event.venue_state,                      
+                    latitude: event.latitude,
+                    longitude: event.longitude,                   
                     max_capacity: event.total_capacity,
                     is_paid: event.is_paid,
                     enable_waitlist: true,

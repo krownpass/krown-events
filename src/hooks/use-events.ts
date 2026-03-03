@@ -17,6 +17,8 @@ export interface Event {
     venue_address: string;
     venue_city: string;
     venue_state: string;
+    latitude?: number;
+    longitude?: number;
     total_capacity?: number;
     max_capacity?: number;
     current_registrations?: number;
@@ -67,6 +69,8 @@ export interface CreateEventData {
     venue_address?: string;
     venue_city?: string;
     venue_state?: string;
+    latitude?: number;
+    longitude?: number;
     max_capacity?: number;
     visibility?: string;
     status?: Event["status"];

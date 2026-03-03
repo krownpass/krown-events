@@ -24,12 +24,14 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { createEventSchema, type CreateEventInput } from "@/schemas/event";
+import { EventGallery } from "./EventGallery";
 
 interface EventFormProps {
     defaultValues?: Partial<CreateEventInput>;
     onSubmit: (data: CreateEventInput) => void;
     isSubmitting?: boolean;
     submitLabel?: string;
+    eventId?: string;
 }
 
 const EVENT_TYPES = [
@@ -59,6 +61,7 @@ export function EventForm({
     onSubmit,
     isSubmitting = false,
     submitLabel = "Create Event",
+    eventId,
 }: EventFormProps) {
     const form = useForm<CreateEventInput>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -75,7 +78,9 @@ export function EventForm({
             venue_name: defaultValues?.venue_name ?? "",
             venue_address: defaultValues?.venue_address ?? "",
             venue_city: defaultValues?.venue_city ?? "",
-            venue_state: defaultValues?.venue_state ?? "",
+            venue_state: defaultValues?.venue_state ?? "",              
+            latitude: defaultValues?.latitude,
+            longitude: defaultValues?.longitude,
             max_capacity: defaultValues?.max_capacity,
             is_paid: defaultValues?.is_paid ?? false,
             base_price: defaultValues?.base_price ?? 0,
@@ -104,6 +109,8 @@ export function EventForm({
             end_time: new Date(data.end_time).toISOString(),
             cover_image: data.cover_image || undefined,
             ticket_tiers: data.is_paid ? data.ticket_tiers : undefined,
+            latitude: data.latitude ?? undefined,
+            longitude: data.longitude ?? undefined,
         };
         onSubmit(payload);
     };
@@ -325,30 +332,70 @@ export function EventForm({
                             )}
                         />
                     </div>
+                    <div className="grid sm:grid-cols-2 gap-4 mt-4">
+                        <FormField
+                            control={form.control}
+                            name="latitude"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Latitude</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Latitude"
+                                            type="number"
+                                            step="any"
+                                            value={field.value ?? ""}
+                                            onChange={(e) => field.onChange(e.target.value)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="longitude"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Longitude</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Longitude"
+                                            type="number"
+                                            step="any"
+                                            value={field.value ?? ""}
+                                            onChange={(e) => field.onChange(e.target.value)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
                 </div>
 
-                {/* ── Capacity & Access ───────────────────────── */}
-                <div className="bg-card rounded-xl p-6 border border-border space-y-4">
-                    <h3 className="text-lg font-semibold">Capacity & Access</h3>
+                    {/* ── Capacity & Access ───────────────────────── */}
+                    <div className="bg-card rounded-xl p-6 border border-border space-y-4">
+                        <h3 className="text-lg font-semibold">Capacity & Access</h3>
 
-                    <FormField
-                        control={form.control}
-                        name="max_capacity"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Max Capacity</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="number"
-                                        placeholder="e.g. 500"
-                                        {...field}
-                                        value={field.value ?? ""}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                        <FormField
+                            control={form.control}
+                            name="max_capacity"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Max Capacity</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            placeholder="e.g. 500"
+                                            {...field}
+                                            value={field.value ?? ""}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                     <div className="grid sm:grid-cols-2 gap-4">
                         <FormField
@@ -525,6 +572,13 @@ export function EventForm({
                         </>
                     )}
                 </div>
+
+                {/* ── Gallery Images ──────────────────────────── */}
+                {eventId && (
+                    <div className="bg-card rounded-xl p-6 border border-border space-y-4">
+                        <EventGallery eventId={eventId} maxImages={10} />
+                    </div>
+                )}
 
                 {/* ── Submit ──────────────────────────────────── */}
                 <div className="flex items-center justify-end gap-3">
