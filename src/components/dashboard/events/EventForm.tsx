@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Select,
     SelectContent,
@@ -70,8 +71,8 @@ export function EventForm({
             cover_image: defaultValues?.cover_image ?? "",
             visibility: defaultValues?.visibility ?? "PUBLIC",
             start_time: toDatetimeLocal(defaultValues?.start_time) || "",
-            end_time: toDatetimeLocal(defaultValues?.end_time) || "",
-            timezone: defaultValues?.timezone ?? "Asia/Kolkata",
+            end_time: toDatetimeLocal(defaultValues?.end_time) || "",            reveal_time: defaultValues?.reveal_time ? toDatetimeLocal(defaultValues.reveal_time) : "",
+            reveal_fields: defaultValues?.reveal_fields || [],            timezone: defaultValues?.timezone ?? "Asia/Kolkata",
             venue_name: defaultValues?.venue_name ?? "",
             venue_address: defaultValues?.venue_address ?? "",
             venue_city: defaultValues?.venue_city ?? "",
@@ -97,11 +98,13 @@ export function EventForm({
     const isPaid = useWatch({ control: form.control, name: "is_paid" });
 
     const handleSubmit = (data: CreateEventInput) => {
-        // Convert datetime-local to ISO
+        // Convert datetime-local to ISO if present, clear reveal if no reveal_time
         const payload = {
             ...data,
             start_time: new Date(data.start_time).toISOString(),
             end_time: new Date(data.end_time).toISOString(),
+            reveal_time: data.reveal_time ? new Date(data.reveal_time).toISOString() : null,
+            reveal_fields: data.reveal_time ? data.reveal_fields : [],
             cover_image: data.cover_image || undefined,
             ticket_tiers: data.is_paid ? data.ticket_tiers : undefined,
         };
@@ -325,6 +328,92 @@ export function EventForm({
                             )}
                         />
                     </div>
+                </div>
+
+                {/* ── Reveal Settings ─────────────────────────────── */}
+                <div className="bg-card rounded-xl p-6 border border-border space-y-4">
+                    <h3 className="text-lg font-semibold">Location Reveal Settings</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Set a specific time before the event to reveal the location details.
+                        If you set a reveal time, you must select which fields to hide until then.
+                    </p>
+                    
+                    <FormField
+                        control={form.control}
+                        name="reveal_time"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Reveal Time (Optional)</FormLabel>
+                                <FormControl>
+                                    <Input 
+                                        type="datetime-local" 
+                                        {...field} 
+                                        value={field.value || ""} 
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {form.watch("reveal_time") && (
+                        <FormField
+                            control={form.control}
+                            name="reveal_fields"
+                            render={() => (
+                                <FormItem>
+                                    <div className="mb-4">
+                                        <FormLabel className="text-base">Fields to Hide</FormLabel>
+                                        <FormDescription>
+                                            Select which venue details should remain hidden until the reveal time.
+                                        </FormDescription>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {[
+                                            { id: "venue_name", label: "Venue Name" },
+                                            { id: "venue_address", label: "Address" },
+                                            { id: "venue_city", label: "City" },
+                                            { id: "venue_state", label: "State" },
+                                        ].map((item) => (
+                                            <FormField
+                                                key={item.id}
+                                                control={form.control}
+                                                name="reveal_fields"
+                                                render={({ field }) => {
+                                                    return (
+                                                        <FormItem
+                                                            key={item.id}
+                                                            className="flex flex-row items-start space-x-3 space-y-0"
+                                                        >
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value?.includes(item.id)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        const current = field.value || [];
+                                                                        return checked
+                                                                            ? field.onChange([...current, item.id])
+                                                                            : field.onChange(
+                                                                                current.filter(
+                                                                                    (value) => value !== item.id
+                                                                                )
+                                                                            );
+                                                                    }}
+                                                                />
+                                                            </FormControl>
+                                                            <FormLabel className="font-normal">
+                                                                {item.label}
+                                                            </FormLabel>
+                                                        </FormItem>
+                                                    );
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                 </div>
 
                 {/* ── Capacity & Access ───────────────────────── */}

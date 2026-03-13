@@ -57,7 +57,12 @@ export const useAuthStore = create<AuthStore>()(
         }),
         {
             name: "auth-storage",
-            storage: createJSONStorage(() => localStorage),
+            // @ts-ignore
+            storage: createJSONStorage(() => typeof window !== 'undefined' ? window.localStorage : {
+                getItem: () => null,
+                setItem: () => {},
+                removeItem: () => {},
+            }),
             partialize: (state) => ({
                 // ✅ DO NOT persist accessToken — it expires, keep only user identity
                 user: state.user,
@@ -66,7 +71,9 @@ export const useAuthStore = create<AuthStore>()(
             onRehydrateStorage: () => (state, error) => {
                 if (error) {
                     console.error("Error rehydrating auth store:", error);
-                    localStorage.removeItem("auth-storage");
+                    if (typeof window !== "undefined") {
+                        window.localStorage.removeItem("auth-storage");
+                    }
                     return;
                 }
                 if (state?.user && !state.user.organizerId) {

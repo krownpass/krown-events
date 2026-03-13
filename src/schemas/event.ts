@@ -75,7 +75,18 @@ export const createEventSchema = z.object({
     max_tickets_per_user: z.coerce.number().int().positive().default(5),
     enable_waitlist: z.boolean().default(true),
     ticket_tiers: z.array(ticketTierSchema).optional(),
-});
+}).refine(
+    (data) => {
+        if (!data.reveal_time || !data.start_time) return true;
+        const revealTime = new Date(data.reveal_time).getTime();
+        const startTime = new Date(data.start_time).getTime();
+        return revealTime < startTime;
+    },
+    {
+        message: "Reveal time must be before event start time",
+        path: ["reveal_time"],
+    }
+);
 
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 
@@ -106,6 +117,17 @@ export const updateEventSchema = z.object({
     max_guest_invites_per_user: z.coerce.number().int().min(0).optional(),
     max_tickets_per_user: z.coerce.number().int().positive().optional(),
     enable_waitlist: z.boolean().optional(),
-});
+}).refine(
+    (data) => {
+        if (!data.reveal_time || !data.start_time) return true;
+        const revealTime = new Date(data.reveal_time).getTime();
+        const startTime = new Date(data.start_time).getTime();
+        return revealTime < startTime;
+    },
+    {
+        message: "Reveal time must be before event start time",
+        path: ["reveal_time"],
+    }
+);
 
 export type UpdateEventInput = z.infer<typeof updateEventSchema>;
