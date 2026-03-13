@@ -41,7 +41,7 @@ class ApiClient {
     private async request<T = any>(
         method: HttpMethod,
         url: string,
-        config: RequestConfig = {}
+        config: RequestConfig & { body?: BodyInit } = {}
     ): Promise<ApiResponse<T>> {
         const requestUrl = url.startsWith("http")
             ? url
@@ -49,20 +49,37 @@ class ApiClient {
 
 
         const accessToken = useAuthStore.getState().accessToken;
+        
+        // Remove Content-Type if we're sending FormData to allow browser to set it with boundary
+        const headers: Record<string, string> = {
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            ...config.headers,
+        };
+        
+        if (!config.body && !(config.data instanceof FormData) && !headers["Content-Type"]) {
+             headers["Content-Type"] = "application/json";
+        }
+        
+        // When using FormData, let the browser define the Content-Type to include the boundary
+        if (config.data instanceof FormData || config.body instanceof FormData) {
+            delete headers["Content-Type"];
+        }
+
         const requestOptions: RequestInit = {
             method,
-            headers: {
-                "Content-Type": "application/json",
-
-                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-                ...config.headers,
-            },
+            headers,
             credentials: "include",
             cache: "no-store",
         };
 
-        if (config.data && method !== "GET") {
-            requestOptions.body = JSON.stringify(config.data);
+        if (config.body && method !== "GET") {
+             requestOptions.body = config.body;
+        } else if (config.data && method !== "GET") {
+            if (config.data instanceof FormData) {
+                 requestOptions.body = config.data;
+            } else {
+                 requestOptions.body = JSON.stringify(config.data);
+            }
         }
 
         try {

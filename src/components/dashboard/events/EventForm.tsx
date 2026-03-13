@@ -25,12 +25,14 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { createEventSchema, type CreateEventInput } from "@/schemas/event";
+import { EventGallery } from "./EventGallery";
 
 interface EventFormProps {
     defaultValues?: Partial<CreateEventInput>;
     onSubmit: (data: CreateEventInput) => void;
     isSubmitting?: boolean;
     submitLabel?: string;
+    eventId?: string;
 }
 
 const EVENT_TYPES = [
@@ -60,6 +62,7 @@ export function EventForm({
     onSubmit,
     isSubmitting = false,
     submitLabel = "Create Event",
+    eventId,
 }: EventFormProps) {
     const form = useForm<CreateEventInput>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -71,12 +74,16 @@ export function EventForm({
             cover_image: defaultValues?.cover_image ?? "",
             visibility: defaultValues?.visibility ?? "PUBLIC",
             start_time: toDatetimeLocal(defaultValues?.start_time) || "",
-            end_time: toDatetimeLocal(defaultValues?.end_time) || "",            reveal_time: defaultValues?.reveal_time ? toDatetimeLocal(defaultValues.reveal_time) : "",
-            reveal_fields: defaultValues?.reveal_fields || [],            timezone: defaultValues?.timezone ?? "Asia/Kolkata",
+            end_time: toDatetimeLocal(defaultValues?.end_time) || "",
+            reveal_time: defaultValues?.reveal_time ? toDatetimeLocal(defaultValues.reveal_time) : "",
+            reveal_fields: defaultValues?.reveal_fields || [],
+            timezone: defaultValues?.timezone ?? "Asia/Kolkata",
             venue_name: defaultValues?.venue_name ?? "",
             venue_address: defaultValues?.venue_address ?? "",
             venue_city: defaultValues?.venue_city ?? "",
-            venue_state: defaultValues?.venue_state ?? "",
+            venue_state: defaultValues?.venue_state ?? "",              
+            latitude: defaultValues?.latitude,
+            longitude: defaultValues?.longitude,
             max_capacity: defaultValues?.max_capacity,
             is_paid: defaultValues?.is_paid ?? false,
             base_price: defaultValues?.base_price ?? 0,
@@ -107,6 +114,8 @@ export function EventForm({
             reveal_fields: data.reveal_time ? data.reveal_fields : [],
             cover_image: data.cover_image || undefined,
             ticket_tiers: data.is_paid ? data.ticket_tiers : undefined,
+            latitude: data.latitude ?? undefined,
+            longitude: data.longitude ?? undefined,
         };
         onSubmit(payload);
     };
@@ -328,7 +337,133 @@ export function EventForm({
                             )}
                         />
                     </div>
+                    <div className="grid sm:grid-cols-2 gap-4 mt-4">
+                        <FormField
+                            control={form.control}
+                            name="latitude"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Latitude</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Latitude"
+                                            type="number"
+                                            step="any"
+                                            value={field.value ?? ""}
+                                            onChange={(e) => field.onChange(e.target.value)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="longitude"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Longitude</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="Longitude"
+                                            type="number"
+                                            step="any"
+                                            value={field.value ?? ""}
+                                            onChange={(e) => field.onChange(e.target.value)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
                 </div>
+
+                {/* ── Reveal Settings ───────────────────────────────
+                <div className="bg-card rounded-xl p-6 border border-border space-y-4">
+                    <h3 className="text-lg font-semibold">Location Reveal Settings</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Set a specific time before the event to reveal the location details.
+                        If you set a reveal time, you must select which fields to hide until then.
+                    </p>
+                    
+                    <FormField
+                        control={form.control}
+                        name="reveal_time"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Reveal Time (Optional)</FormLabel>
+                                <FormControl>
+                                    <Input 
+                                        type="datetime-local" 
+                                        {...field} 
+                                        value={field.value || ""} 
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {form.watch("reveal_time") && (
+                        <FormField
+                            control={form.control}
+                            name="reveal_fields"
+                            render={() => (
+                                <FormItem>
+                                    <div className="mb-4">
+                                        <FormLabel className="text-base">Fields to Hide</FormLabel>
+                                        <FormDescription>
+                                            Select which venue details should remain hidden until the reveal time.
+                                        </FormDescription>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {[
+                                            { id: "venue_name", label: "Venue Name" },
+                                            { id: "venue_address", label: "Address" },
+                                            { id: "venue_city", label: "City" },
+                                            { id: "venue_state", label: "State" },
+                                        ].map((item) => (
+                                            <FormField
+                                                key={item.id}
+                                                control={form.control}
+                                                name="reveal_fields"
+                                                render={({ field }) => {
+                                                    return (
+                                                        <FormItem
+                                                            key={item.id}
+                                                            className="flex flex-row items-start space-x-3 space-y-0"
+                                                        >
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value?.includes(item.id)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        const current = field.value || [];
+                                                                        return checked
+                                                                            ? field.onChange([...current, item.id])
+                                                                            : field.onChange(
+                                                                                current.filter(
+                                                                                    (value) => value !== item.id
+                                                                                )
+                                                                            );
+                                                                    }}
+                                                                />
+                                                            </FormControl>
+                                                            <FormLabel className="font-normal">
+                                                                {item.label}
+                                                            </FormLabel>
+                                                        </FormItem>
+                                                    );
+                                                }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
+                </div> */}
 
                 {/* ── Reveal Settings ─────────────────────────────── */}
                 <div className="bg-card rounded-xl p-6 border border-border space-y-4">
@@ -416,28 +551,28 @@ export function EventForm({
                     )}
                 </div>
 
-                {/* ── Capacity & Access ───────────────────────── */}
-                <div className="bg-card rounded-xl p-6 border border-border space-y-4">
-                    <h3 className="text-lg font-semibold">Capacity & Access</h3>
+                    {/* ── Capacity & Access ───────────────────────── */}
+                    <div className="bg-card rounded-xl p-6 border border-border space-y-4">
+                        <h3 className="text-lg font-semibold">Capacity & Access</h3>
 
-                    <FormField
-                        control={form.control}
-                        name="max_capacity"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Max Capacity</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        type="number"
-                                        placeholder="e.g. 500"
-                                        {...field}
-                                        value={field.value ?? ""}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                        <FormField
+                            control={form.control}
+                            name="max_capacity"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Max Capacity</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            placeholder="e.g. 500"
+                                            {...field}
+                                            value={field.value ?? ""}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                     <div className="grid sm:grid-cols-2 gap-4">
                         <FormField
@@ -614,6 +749,13 @@ export function EventForm({
                         </>
                     )}
                 </div>
+
+                {/* ── Gallery Images ──────────────────────────── */}
+                {eventId && (
+                    <div className="bg-card rounded-xl p-6 border border-border space-y-4">
+                        <EventGallery eventId={eventId} maxImages={10} />
+                    </div>
+                )}
 
                 {/* ── Submit ──────────────────────────────────── */}
                 <div className="flex items-center justify-end gap-3">

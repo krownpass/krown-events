@@ -18,3 +18,4 @@ export * from "./use-waitlist";
 
 // ─── Admin Dashboard ──────────────────────────────────────────────────────
 export * from "./use-admin";
+export * from './use-event-gallery';

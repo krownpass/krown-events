@@ -67,10 +67,9 @@ export function BankForm() {
     const bankId = actionState.data?.bank_id ?? "";
     const shouldPoll =
         actionState.success &&
-        actionState.data?.status === "pending" &&
+        (actionState.data?.status === "pending" || actionState.data?.status === "manual_review") &&
         !!bankId &&
-        bankId !== "undefined" &&
-        bankId.length > 20;
+        bankId !== "undefined";
 
     const { data: bankStatus, isLoading: isPolling } = useBankStatus(bankId, shouldPoll);
 

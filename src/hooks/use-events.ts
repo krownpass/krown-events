@@ -17,6 +17,10 @@ export interface Event {
     venue_address: string;
     venue_city: string;
     venue_state: string;
+    reveal_time?: string | null;
+    reveal_fields?: string[];
+    latitude?: number;
+    longitude?: number;
     total_capacity?: number;
     max_capacity?: number;
     current_registrations?: number;
@@ -26,7 +30,6 @@ export interface Event {
     enable_waitlist?: boolean;
     max_tickets_per_user?: number;
     max_guest_invites_per_user?: number;
-    reveal_time?: string;
     created_at: string;
     updated_at: string;
     tiers?: TicketTier[];
@@ -67,6 +70,8 @@ export interface CreateEventData {
     venue_address?: string;
     venue_city?: string;
     venue_state?: string;
+    latitude?: number;
+    longitude?: number;
     max_capacity?: number;
     visibility?: string;
     status?: Event["status"];

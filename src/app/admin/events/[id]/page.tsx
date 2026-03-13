@@ -9,7 +9,7 @@ import { EventHeader } from "@/components/dashboard/events/EventHeader";
 import { OverviewTab } from "@/components/dashboard/events/tabs/OverviewTab";
 import { RegistrationsTab } from "@/components/dashboard/events/tabs/RegistrationsTabs";
 import { WaitlistTab } from "@/components/dashboard/events/tabs/WaitlistTab";
-import { InvitesTab } from "@/components/dashboard/events/tabs/InvitesTab";
+import { InviteLinksTab } from "@/components/dashboard/events/tabs/InvitesTab";
 import { TicketsTab } from "@/components/dashboard/events/tabs/TicketsTab";
 import { BroadcastTab } from "@/components/dashboard/events/tabs/BroadCastTab";
 import { AnalyticsTab } from "@/components/dashboard/events/tabs/AnalyticsTab";
@@ -65,27 +65,27 @@ export default function EventDetailPage({
 
             <Tabs defaultValue="overview" className="w-full">
                 <div className="mb-6 overflow-x-auto">
-                <TabsList className="inline-flex min-w-max justify-start rounded-none border-b border-border bg-transparent p-0">
-                    {[
-                        "Overview",
-                        "Check-in",
-                        "Registrations",
-                        "Waitlist",
-                        "Invites",
-                        "Tickets",
-                        "Broadcast",
-                        "Analytics",
-                        "Settings",
-                    ].map((tab) => (
-                        <TabsTrigger
-                            key={tab}
-                            value={tab.toLowerCase()}
-                            className="shrink-0 rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent"
-                        >
-                            {tab}
-                        </TabsTrigger>
-                    ))}
-                </TabsList>
+                    <TabsList className="inline-flex min-w-max justify-start rounded-none border-b border-border bg-transparent p-0">
+                        {[
+                            "Overview",
+                            "Check-in",
+                            "Registrations",
+                            "Waitlist",
+                            "Invites",
+                            "Tickets",
+                            "Broadcast",
+                            "Analytics",
+                            "Settings",
+                        ].map((tab) => (
+                            <TabsTrigger
+                                key={tab}
+                                value={tab.toLowerCase()}
+                                className="shrink-0 rounded-none border-b-2 border-transparent px-4 py-3 data-[state=active]:border-primary data-[state=active]:bg-transparent"
+                            >
+                                {tab}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
                 </div>
 
                 <TabsContent value="overview">
@@ -105,7 +105,7 @@ export default function EventDetailPage({
                 </TabsContent>
 
                 <TabsContent value="invites">
-                    <InvitesTab eventId={event.event_id} />
+                    <InviteLinksTab eventId={event.event_id} />
                 </TabsContent>
 
                 <TabsContent value="tickets">

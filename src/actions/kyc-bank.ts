@@ -58,7 +58,7 @@ export async function submitBankAction(
             data?: BankResult;
             message?: string;
             error?: string;
-        }>("/kyc/bank", parsed.data, {
+        }>("/kyc/bank/direct", parsed.data, {
             headers: { Authorization: `Bearer ${token}` }
         });
 
