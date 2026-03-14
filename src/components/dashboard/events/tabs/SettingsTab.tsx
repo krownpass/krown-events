@@ -12,7 +12,10 @@ export function SettingsTab({ eventId, event }: { eventId: string; event: Event 
     const [enableWaitlist, setEnableWaitlist] = useState(event.enable_waitlist ?? true);
     const [requiresApproval, setRequiresApproval] = useState(event.requires_approval ?? false);
     const [maxTicketsPerUser, setMaxTicketsPerUser] = useState(
-        String(event.max_tickets_per_user ?? 5)
+        String(event.max_tickets_per_user ?? "")
+    );
+    const [maxGuestInvitesPerUser, setMaxGuestInvitesPerUser] = useState(
+        String(event.max_guest_invites_per_user ?? "")
     );
 
     const updateMutation = useUpdateEvent(eventId);
@@ -22,7 +25,8 @@ export function SettingsTab({ eventId, event }: { eventId: string; event: Event 
             {
                 enable_waitlist: enableWaitlist,
                 requires_approval: requiresApproval,
-                max_tickets_per_user: Number(maxTicketsPerUser) || 5,
+                max_tickets_per_user: maxTicketsPerUser ? Number(maxTicketsPerUser) : undefined,
+                max_guest_invites_per_user: maxGuestInvitesPerUser ? Number(maxGuestInvitesPerUser) : undefined,
             },
             {
                 onSuccess: () => toast.success("Settings saved!"),
@@ -53,7 +57,7 @@ export function SettingsTab({ eventId, event }: { eventId: string; event: Event 
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Total Capacity</span>
-                        <span className="font-medium">{event.total_capacity}</span>
+                        <span className="font-medium">{event.max_capacity ?? event.total_capacity ?? "N/A"}</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <span className="text-muted-foreground">Paid Event</span>
@@ -117,6 +121,19 @@ export function SettingsTab({ eventId, event }: { eventId: string; event: Event 
                             onChange={(e) => setMaxTicketsPerUser(e.target.value)}
                             className="max-w-[200px]"
                             min={1}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="max-guest-invites-per-user" className="text-sm font-medium mb-2 block">
+                            Max guest invites per user
+                        </label>
+                        <Input
+                            id="max-guest-invites-per-user"
+                            type="number"
+                            value={maxGuestInvitesPerUser}
+                            onChange={(e) => setMaxGuestInvitesPerUser(e.target.value)}
+                            className="max-w-[200px]"
+                            min={0}
                         />
                     </div>
                 </div>

@@ -83,15 +83,21 @@ export default function EditEventPage({
                     venue_state: event.venue_state,                      
                     latitude: event.latitude,
                     longitude: event.longitude,                   
-                    max_capacity: event.total_capacity,
+                    max_capacity: event.max_capacity ?? event.total_capacity,
                     is_paid: event.is_paid,
-                    enable_waitlist: true,
-                    ticket_tiers: event.tiers?.map((t: TicketTier) => ({
-                        name: t.tier_name,
-                        quantity: t.capacity,
+                    base_price: event.base_price,
+                    tags: event.tags,
+                    category: event.category,
+                    max_tickets_per_user: event.max_tickets_per_user,
+                    max_guest_invites_per_user: event.max_guest_invites_per_user,
+                    enable_waitlist: event.enable_waitlist ?? true,
+                    ticket_tiers: (event.ticket_tiers || []).map((t: any) => ({
+                        name: t.name || t.tier_name,
+                        quantity: t.quantity || t.capacity,
                         price: t.price,
-                        max_per_user: 5,
-                        sort_order: 0,
+                        max_per_user: t.max_per_user,
+                        sort_order: t.sort_order || 0,
+                        description: t.description || t.tier_description,
                     })),
                 }}
                 onSubmit={handleSubmit}
@@ -108,4 +114,5 @@ interface TicketTier {
     tier_description: string;
     price: number;
     capacity: number;
+    max_per_user: number;
 }

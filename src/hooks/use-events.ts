@@ -25,6 +25,7 @@ export interface Event {
     max_capacity?: number;
     current_registrations?: number;
     is_paid: boolean;
+    base_price?: number;
     is_registration_open?: boolean;
     requires_approval: boolean;
     enable_waitlist?: boolean;
@@ -33,6 +34,9 @@ export interface Event {
     created_at: string;
     updated_at: string;
     tiers?: TicketTier[];
+    ticket_tiers?: any[];
+    tags?: string[];
+    category?: string;
     // ── NEW: Dynamic media support for UI (images, banners, etc.)
     image_url?: string; // Primary event banner/image
     media?: Array<{
