@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { EventForm } from "@/components/dashboard/events/EventForm";
 import { useEvent, useUpdateEvent, type Event } from "@/hooks";
 import type { CreateEventInput } from "@/schemas/event";
+import { apiClient } from "@/lib/api-client";
 
 export default function EditEventPage({
     params,
@@ -21,16 +22,30 @@ export default function EditEventPage({
     const event = data as Event | undefined;
     const updateEvent = useUpdateEvent(id);
 
-    const handleSubmit = (data: CreateEventInput) => {
-        updateEvent.mutate(data, {
-            onSuccess: () => {
-                toast.success("Event updated successfully!");
-                router.push(`/admin/events/${id}`);
-            },
-            onError: (err) => {
-                toast.error(err.message || "Failed to update event");
-            },
-        });
+    const handleSubmit = async (data: CreateEventInput, coverFile?: File) => {
+        try {
+            if (coverFile) {
+                const formData = new FormData();
+                formData.append("file", coverFile);
+                formData.append("event_id", id);
+                formData.append("file_name", `${id}-cover-${Date.now()}-${coverFile.name}`);
+                
+                const response = await apiClient.post("/events/cover/upload", undefined, {
+                    body: formData,
+                } as any);
+
+                const responseData = response.data?.data ?? response.data;
+                if (responseData?.url) {
+                    data.cover_image = responseData.url;
+                }
+            }
+
+            await updateEvent.mutateAsync(data);
+            toast.success("Event updated successfully!");
+            router.push(`/admin/events/${id}`);
+        } catch (err: any) {
+            toast.error(err.message || "Failed to update event");
+        }
     };
 
     if (isLoading) {
@@ -72,7 +87,7 @@ export default function EditEventPage({
                     title: event.title,
                     description: event.description,
                     event_type: event.event_type as CreateEventInput["event_type"],
-                    cover_image: event.image_url ?? "",
+                    cover_image: event.cover_image ?? event.image_url ?? "",
                     start_time: event.start_time,
                     end_time: event.end_time,
                     reveal_time: event.reveal_time,
