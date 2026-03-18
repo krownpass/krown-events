@@ -9,6 +9,7 @@ export interface Event {
     slug?: string;
     title: string;
     description: string;
+    cover_image?: string;
     event_type: "OPEN" | "CONCERT" | "INVITE_ONLY" | "MEMBERS_ONLY" | "KROWN_EXCLUSIVE";
     status: "DRAFT" | "PUBLISHED" | "LIVE" | "CANCELLED" | "COMPLETED";
     start_time: string;

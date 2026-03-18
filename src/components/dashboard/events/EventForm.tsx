@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Loader2 } from "lucide-react";
@@ -26,10 +27,11 @@ import {
 } from "@/components/ui/form";
 import { createEventSchema, type CreateEventInput } from "@/schemas/event";
 import { EventGallery } from "./EventGallery";
+import { EventCoverUpload } from "./EventCoverUpload";
 
 interface EventFormProps {
     defaultValues?: Partial<CreateEventInput>;
-    onSubmit: (data: CreateEventInput) => void;
+    onSubmit: (data: CreateEventInput, coverFile?: File) => void;
     isSubmitting?: boolean;
     submitLabel?: string;
     eventId?: string;
@@ -64,6 +66,8 @@ export function EventForm({
     submitLabel = "Create Event",
     eventId,
 }: EventFormProps) {
+    const [pendingCoverFile, setPendingCoverFile] = useState<File | undefined>();
+
     const form = useForm<CreateEventInput>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(createEventSchema) as any,
@@ -112,12 +116,12 @@ export function EventForm({
             end_time: new Date(data.end_time).toISOString(),
             reveal_time: data.reveal_time ? new Date(data.reveal_time).toISOString() : null,
             reveal_fields: data.reveal_time ? data.reveal_fields : [],
-            cover_image: data.cover_image || undefined,
+            cover_image: data.cover_image === "" ? "" : data.cover_image || undefined,
             ticket_tiers: data.is_paid ? data.ticket_tiers : undefined,
             latitude: data.latitude ?? undefined,
             longitude: data.longitude ?? undefined,
         };
-        onSubmit(payload);
+        onSubmit(payload, pendingCoverFile);
     };
 
     return (
@@ -213,21 +217,6 @@ export function EventForm({
 
                     <FormField
                         control={form.control}
-                        name="cover_image"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Cover Image URL</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="https://..." {...field} />
-                                </FormControl>
-                                <FormDescription>Direct URL to the event banner image</FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
                         name="category"
                         render={({ field }) => (
                             <FormItem>
@@ -238,6 +227,24 @@ export function EventForm({
                                 <FormMessage />
                             </FormItem>
                         )}
+                    />
+                </div>
+
+                {/* ── Cover Image ──────────────────────────── */}
+                <div className="bg-card rounded-xl p-6 border border-border">
+                    <EventCoverUpload
+                        eventId={eventId}
+                        currentCoverUrl={form.watch("cover_image")}
+                        onFileSelect={(file) => {
+                            setPendingCoverFile(file);
+                        }}
+                        onUploadSuccess={(url) => {
+                            form.setValue("cover_image", url, { shouldValidate: true, shouldDirty: true });
+                        }}
+                        onRemove={() => {
+                            setPendingCoverFile(undefined);
+                            form.setValue("cover_image", "", { shouldValidate: true, shouldDirty: true });
+                        }}
                     />
                 </div>
 
